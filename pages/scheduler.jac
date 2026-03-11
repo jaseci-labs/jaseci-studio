@@ -3,6 +3,7 @@ cl {
 
     def:pub page -> JsxElement {
         has schedules: list = [],
+            show_form: bool = false,
             walker_name: str = "",
             cron_expr: str = "*/5 * * * *",
             loading: bool = true,
@@ -30,13 +31,13 @@ cl {
                     walker_name=walker_name,
                     cron_expr=cron_expr
                 );
-                # Refresh
                 result = root spawn list_schedules();
                 if result.reports and len(result.reports) > 0 {
                     schedules = result.reports[0];
                 }
                 walker_name = "";
                 cron_expr = "*/5 * * * *";
+                show_form = false;
             } except Exception as e {
                 print("Create error:", e);
             }
@@ -64,19 +65,52 @@ cl {
             }
         }
 
+        active_count = len([s for s in schedules if s.get("enabled", false)]);
+
         if loading {
-            return <div className="page-loading">Loading schedules...</div>;
+            return
+                <div className="page-loading">
+                    <div className="spinner"></div>
+                    <div className="loading-text">Loading schedules...</div>
+                </div>;
         }
 
         return
             <div className="page">
                 <div className="page-header">
-                    <h1>Scheduler</h1>
-                    <p className="subtitle">Manage cron jobs and triggers</p>
+                    <div className="page-header-left">
+                        <h1>Scheduler</h1>
+                        <div className="subtitle">Manage automated cron jobs and webhook triggers</div>
+                    </div>
+                    <div className="page-header-actions">
+                        <button
+                            className="btn btn-primary"
+                            onClick={lambda -> None { show_form = not show_form; }}
+                        >
+                            {show_form and "Cancel" or "+ New Schedule"}
+                        </button>
+                    </div>
                 </div>
 
-                <div className="card">
-                    <div className="card-title">New Schedule</div>
+                <div className="stats-grid" style={{"marginBottom": "24px"}}>
+                    <div className="stat-card accent-stripe">
+                        <div className="stat-value accent">{len(schedules)}</div>
+                        <div className="stat-label">Total Schedules</div>
+                    </div>
+                    <div className="stat-card success-stripe">
+                        <div className="stat-value success">{active_count}</div>
+                        <div className="stat-label">Active</div>
+                    </div>
+                    <div className="stat-card warning-stripe">
+                        <div className="stat-value warning">{len(schedules) - active_count}</div>
+                        <div className="stat-label">Paused</div>
+                    </div>
+                </div>
+
+                {show_form and <div className="card" style={{"marginBottom": "16px"}}>
+                    <div className="card-header">
+                        <div className="card-title">New Schedule</div>
+                    </div>
                     <div className="row">
                         <div className="col">
                             <div className="form-group">
@@ -99,52 +133,60 @@ cl {
                             </div>
                         </div>
                     </div>
+                    <div style={{"fontSize": "11px", "color": "var(--text-muted)", "marginBottom": "12px"}}>
+                        Examples: */5 * * * * (every 5 min) | 0 * * * * (hourly) | 0 0 * * * (daily)
+                    </div>
                     <button
                         className="btn btn-primary"
                         onClick={lambda -> None { handle_create(); }}
                         disabled={creating or not walker_name}
                     >
-                        {"Creating..." if creating else "Create Schedule"}
+                        {creating and "Creating..." or "Create Schedule"}
                     </button>
-                </div>
+                </div>}
 
-                <div className="card">
-                    <div className="card-title">Schedules ({len(schedules)})</div>
-                    {len(schedules) == 0
-                    and <div className="empty">No schedules configured</div>
-                    or <table>
-                        <thead><tr><th>Walker</th><th>Cron</th><th>Status</th><th>Actions</th></tr></thead>
-                        <tbody>
-                            {[
-                                <tr key={s.get("id", s.get("walker_name", ""))}>
-                                    <td className="mono">{s.get("walker_name", "")}</td>
-                                    <td className="mono">{s.get("cron_expr", "")}</td>
-                                    <td>
-                                        <span className={"badge " + ("badge-success" if s.get("enabled", false) else "badge-pending")}>
-                                            {"active" if s.get("enabled", false) else "paused"}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <button
-                                            className="btn btn-sm"
-                                            onClick={lambda -> None { handle_toggle(s.get("id", "")); }}
-                                            style={{"marginRight": "4px"}}
-                                        >
-                                            {"Pause" if s.get("enabled", false) else "Enable"}
-                                        </button>
-                                        <button
-                                            className="btn btn-danger btn-sm"
-                                            onClick={lambda -> None { handle_delete(s.get("id", "")); }}
-                                        >
-                                            Delete
-                                        </button>
-                                    </td>
-                                </tr>
-                                for s in schedules
-                            ]}
-                        </tbody>
-                    </table>}
+                {len(schedules) == 0
+                and <div className="card">
+                    <div className="empty-state">
+                        <div className="empty-icon">:::</div>
+                        <div className="empty-title">No schedules configured</div>
+                        <div className="empty-desc">Create a schedule to automatically run walkers on a cron timer</div>
+                    </div>
                 </div>
+                or <div>
+                    {[
+                        <div key={s.get("id", s.get("walker_name", ""))} className="schedule-item">
+                            <div className="schedule-icon" style={{"color": (s.get("enabled", false) and "var(--success)" or "var(--text-muted)")}}>
+                                {s.get("enabled", false) and ">>>" or "| |"}
+                            </div>
+                            <div className="schedule-info">
+                                <div className="schedule-name">{s.get("walker_name", "")}</div>
+                                <div className="schedule-meta">
+                                    <span className="mono">{s.get("cron_expr", "")}</span>
+                                    <span className={"badge " + ("badge-success" if s.get("enabled", false) else "badge-warning")}>
+                                        <span className="badge-dot"></span>
+                                        {s.get("enabled", false) and "active" or "paused"}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="schedule-actions">
+                                <button
+                                    className="btn btn-sm"
+                                    onClick={lambda -> None { handle_toggle(s.get("id", "")); }}
+                                >
+                                    {s.get("enabled", false) and "Pause" or "Enable"}
+                                </button>
+                                <button
+                                    className="btn btn-danger btn-sm"
+                                    onClick={lambda -> None { handle_delete(s.get("id", "")); }}
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                        for s in schedules
+                    ]}
+                </div>}
             </div>;
     }
 }

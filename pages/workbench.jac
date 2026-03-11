@@ -8,7 +8,8 @@ cl {
             result: any = None,
             history: list = [],
             running: bool = false,
-            loading: bool = true;
+            loading: bool = true,
+            tab: str = "result";
 
         async can with entry {
             try {
@@ -21,7 +22,7 @@ cl {
             }
 
             try {
-                h_result = root spawn get_run_history(limit=10);
+                h_result = root spawn get_run_history(limit=15);
                 if h_result.reports and len(h_result.reports) > 0 {
                     history = h_result.reports[0];
                 }
@@ -47,8 +48,8 @@ cl {
                 if run_result.reports and len(run_result.reports) > 0 {
                     result = run_result.reports[0];
                 }
-                # Refresh history
-                h_result = root spawn get_run_history(limit=10);
+                tab = "result";
+                h_result = root spawn get_run_history(limit=15);
                 if h_result.reports and len(h_result.reports) > 0 {
                     history = h_result.reports[0];
                 }
@@ -59,27 +60,40 @@ cl {
         }
 
         if loading {
-            return <div className="page-loading">Loading workbench...</div>;
+            return
+                <div className="page-loading">
+                    <div className="spinner"></div>
+                    <div className="loading-text">Loading workbench...</div>
+                </div>;
         }
 
         return
             <div className="page">
                 <div className="page-header">
-                    <h1>Walker Workbench</h1>
-                    <p className="subtitle">Test and debug your walkers</p>
+                    <div className="page-header-left">
+                        <h1>Walker Workbench</h1>
+                        <div className="subtitle">Test, debug, and inspect walker execution</div>
+                    </div>
+                    <div className="page-header-actions">
+                        <span className="badge badge-info">
+                            {len(walkers)} walkers available
+                        </span>
+                    </div>
                 </div>
 
                 <div className="row">
                     <div className="col">
                         <div className="card">
-                            <div className="card-title">Run Walker</div>
+                            <div className="card-header">
+                                <div className="card-title">Execute Walker</div>
+                            </div>
                             <div className="form-group">
-                                <label>Walker</label>
+                                <label>Select Walker</label>
                                 <select
                                     value={selected}
                                     onChange={lambda e: any -> None { selected = e.target.value; }}
                                 >
-                                    <option value="">Select a walker...</option>
+                                    <option value="">Choose a walker...</option>
                                     {[
                                         <option key={w.get("name", "")} value={w.get("name", "")}>
                                             {w.get("name", "")}
@@ -94,43 +108,93 @@ cl {
                                     className="code-editor"
                                     value={payload}
                                     onChange={lambda e: any -> None { payload = e.target.value; }}
+                                    placeholder='{"key": "value"}'
+                                    style={{"minHeight": "160px"}}
                                 />
                             </div>
                             <button
-                                className="btn btn-primary"
+                                className={"btn btn-primary" + (" btn-lg" if selected else "")}
                                 onClick={lambda -> None { handle_run(); }}
                                 disabled={running or not selected}
+                                style={{"width": "100%"}}
                             >
-                                {"Running..." if running else "Run Walker"}
+                                {running and "Running..." or ("Run " + selected if selected else "Select a walker")}
                             </button>
                         </div>
 
-                        {result and <div className="card">
-                            <div className="card-title">Result</div>
-                            <div className="code-output">
-                                {JSON.stringify(result, None, 2)}
+                        <div className="card">
+                            <div className="tab-bar">
+                                <div
+                                    className={"tab-item" + (" active" if tab == "result" else "")}
+                                    onClick={lambda -> None { tab = "result"; }}
+                                >
+                                    Result
+                                </div>
+                                <div
+                                    className={"tab-item" + (" active" if tab == "history" else "")}
+                                    onClick={lambda -> None { tab = "history"; }}
+                                >
+                                    History ({len(history)})
+                                </div>
                             </div>
-                        </div>}
+
+                            {tab == "result" and (
+                                result
+                                and <div className="code-output">{JSON.stringify(result, None, 2)}</div>
+                                or <div className="empty-state">
+                                    <div className="empty-icon">&gt;_</div>
+                                    <div className="empty-title">No result yet</div>
+                                    <div className="empty-desc">Select a walker and click Run to see output here</div>
+                                </div>
+                            )}
+
+                            {tab == "history" and (
+                                len(history) == 0
+                                and <div className="empty">No runs recorded</div>
+                                or <div>
+                                    {[
+                                        <div key={r.get("walker_name", "") + r.get("executed_at", "")} className="history-item">
+                                            <div className={"history-dot " + r.get("status", "")}></div>
+                                            <div className="history-info">
+                                                <div className="history-name">{r.get("walker_name", "")}</div>
+                                                <div className="history-meta">{r.get("duration_ms", 0)}ms</div>
+                                            </div>
+                                            <div className="history-time">
+                                                <span className={"badge badge-" + r.get("status", "")}>{r.get("status", "")}</span>
+                                            </div>
+                                        </div>
+                                        for r in history
+                                    ]}
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     <div className="col">
                         <div className="card">
-                            <div className="card-title">Run History</div>
-                            {len(history) == 0
-                            and <div className="empty">No runs yet</div>
-                            or <table>
-                                <thead><tr><th>Walker</th><th>Status</th><th>Time</th></tr></thead>
-                                <tbody>
-                                    {[
-                                        <tr key={r.get("walker_name", "") + r.get("status", "")}>
-                                            <td className="mono">{r.get("walker_name", "")}</td>
-                                            <td><span className={"badge badge-" + r.get("status", "")}>{r.get("status", "")}</span></td>
-                                            <td>{r.get("duration_ms", 0)}ms</td>
-                                        </tr>
-                                        for r in history
-                                    ]}
-                                </tbody>
-                            </table>}
+                            <div className="card-header">
+                                <div className="card-title">Available Walkers</div>
+                                <div className="card-badge">{len(walkers)}</div>
+                            </div>
+                            {len(walkers) == 0
+                            and <div className="empty">No walkers found</div>
+                            or <div>
+                                {[
+                                    <div
+                                        key={w.get("name", "")}
+                                        className="history-item"
+                                        onClick={lambda -> None { selected = w.get("name", ""); }}
+                                        style={{"cursor": "pointer"}}
+                                    >
+                                        <div style={{"width": "8px", "height": "8px", "borderRadius": "50%", "background": (selected == w.get("name", "") and "var(--accent)" or "var(--border-light)"), "flexShrink": "0"}}></div>
+                                        <div className="history-info">
+                                            <div className="history-name">{w.get("name", "")}</div>
+                                            <div className="history-meta">{w.get("type", "walker")}</div>
+                                        </div>
+                                    </div>
+                                    for w in walkers
+                                ]}
+                            </div>}
                         </div>
                     </div>
                 </div>
