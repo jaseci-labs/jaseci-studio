@@ -18,29 +18,29 @@ cl {
                     <nav className="sidebar-nav">
                         <div className="sidebar-section">Overview</div>
                         <Link to="/" className={"nav-item" + (" active" if current == "/" else "")}>
-                            <span className="nav-icon">~</span>
+                            <span className="nav-icon">{"▶"}</span>
                             Dashboard
                         </Link>
                         <div className="sidebar-section">Develop</div>
                         <Link to="/workbench" className={"nav-item" + (" active" if current == "/workbench" else "")}>
-                            <span className="nav-icon">&gt;_</span>
+                            <span className="nav-icon">{"⚙"}</span>
                             Workbench
                         </Link>
                         <Link to="/graph" className={"nav-item" + (" active" if current == "/graph" else "")}>
-                            <span className="nav-icon">o-o</span>
+                            <span className="nav-icon">{"⬡"}</span>
                             Graph Explorer
                         </Link>
                         <Link to="/sandbox" className={"nav-item" + (" active" if current == "/sandbox" else "")}>
-                            <span className="nav-icon">[ ]</span>
+                            <span className="nav-icon">{"⌘"}</span>
                             Sandbox
                         </Link>
                         <div className="sidebar-section">Configure</div>
                         <Link to="/gateway" className={"nav-item" + (" active" if current == "/gateway" else "")}>
-                            <span className="nav-icon">&lt;/&gt;</span>
+                            <span className="nav-icon">{"⬣"}</span>
                             AI Gateway
                         </Link>
                         <Link to="/scheduler" className={"nav-item" + (" active" if current == "/scheduler" else "")}>
-                            <span className="nav-icon">:::</span>
+                            <span className="nav-icon">{"⏰"}</span>
                             Scheduler
                         </Link>
                     </nav>
