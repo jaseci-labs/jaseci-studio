@@ -6,14 +6,18 @@ authors = [{ name = "Jaseci Labs" }]
 license = { text = "MIT" }
 requires-python = ">=3.11"
 dependencies = [
-    "jaclang>=0.12.0,<0.13",
-    "jaseci>=2.3.4",
+    "fastapi>=0.104",
+    "pydantic>=2.0",
 ]
 
 [project.optional-dependencies]
+jac = [
+    "jaclang>=0.12.0,<0.13",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
+    "httpx>=0.25",
 ]
 enterprise = [
     "jaseci-enterprise>=0.3.0",
@@ -21,10 +25,13 @@ enterprise = [
 
 [build-system]
 requires = ["setuptools>=68.0"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+jaseci_studio = ["*.jac", "client/dist/**"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
