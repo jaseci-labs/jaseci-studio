@@ -151,42 +151,119 @@ walker:pub get_health {
 # ---------------------------------------------------------------------------
 
 walker:pub list_walkers {
-    """List all walker types available in the runtime."""
+    """List all walker types available in the runtime via introspection."""
 
     can discover with Root entry {
-        # Return the known Studio walkers with descriptions
-        walkers = [
-            {"name": "init_studio", "type": "walker", "description": "Bootstrap Studio graph with seed data"},
-            {"name": "get_dashboard", "type": "walker", "description": "Aggregate stats for dashboard"},
-            {"name": "get_health", "type": "walker", "description": "Runtime health information"},
-            {"name": "list_walkers", "type": "walker", "description": "List available walkers"},
-            {"name": "run_walker_test", "type": "walker", "description": "Execute a walker and record result"},
-            {"name": "get_run_history", "type": "walker", "description": "Recent walker run history"},
-            {"name": "inspect_graph", "type": "walker", "description": "Graph structure for visualization"},
-            {"name": "add_model", "type": "walker", "description": "Add an AI model configuration"},
-            {"name": "list_models", "type": "walker", "description": "List configured AI models"},
-            {"name": "remove_model", "type": "walker", "description": "Remove an AI model"},
-            {"name": "record_cost", "type": "walker", "description": "Record LLM usage cost"},
-            {"name": "get_cost_summary", "type": "walker", "description": "Aggregate cost data"},
-            {"name": "create_schedule", "type": "walker", "description": "Create a cron schedule"},
-            {"name": "list_schedules", "type": "walker", "description": "List all schedules"},
-            {"name": "toggle_schedule", "type": "walker", "description": "Enable or disable a schedule"},
-            {"name": "delete_schedule", "type": "walker", "description": "Delete a schedule"},
-            {"name": "run_sandbox", "type": "walker", "description": "Execute Jac code in sandbox"},
-            {"name": "get_sandbox_history", "type": "walker", "description": "Sandbox execution history"}
-        ];
+        import from jaclang { JacRuntime as Jac }
+        import from jaclang.jac0core.constructs { WalkerArchetype }
+
+        walkers: list = [];
+
+        # Use JacRuntime.list_walkers for discovery, then get_archetype for details
+        for module_name in list(Jac.loaded_modules.keys()) + ["__main__"] {
+            walker_names = Jac.list_walkers(module_name);
+            for wname in walker_names {
+                # Avoid duplicates
+                already = False;
+                for existing in walkers {
+                    if existing["name"] == wname {
+                        already = True;
+                        break;
+                    }
+                }
+                if already { continue; }
+
+                cls = Jac.get_archetype(module_name, wname);
+                doc = "";
+                params: list = [];
+
+                if cls is not None {
+                    doc = cls.__doc__ or "";
+                    doc = doc.strip().split("\n")[0] if doc.strip() else "";
+                    # Filter out auto-generated docstrings like "init_studio()"
+                    if doc == wname + "()" { doc = ""; }
+
+                    # Extract has-fields (walker parameters) from annotations
+                    skip_fields = ["reports", "_jac_entry_funcs_", "_jac_exit_funcs_"];
+                    annotations = getattr(cls, "__annotations__", {});
+                    for (field_name, field_type) in annotations.items() {
+                        if not field_name.startswith("_") and field_name not in skip_fields {
+                            default_val = getattr(cls, field_name, None);
+                            type_str = str(field_type);
+                            # Clean up type display
+                            if type_str.startswith("<class '") { type_str = type_str[8:-2]; }
+                            params.append({
+                                "name": field_name,
+                                "type": type_str,
+                                "default": str(default_val) if default_val is not None else None
+                            });
+                        }
+                    }
+                }
+
+                walkers.append({
+                    "name": wname,
+                    "module": module_name,
+                    "type": "walker",
+                    "description": doc,
+                    "params": params
+                });
+            }
+        }
+
+        # Fallback: also check WalkerArchetype subclasses for any missed walkers
+        for cls in WalkerArchetype.__subclasses__() {
+            wname = cls.__name__;
+            already = False;
+            for existing in walkers {
+                if existing["name"] == wname {
+                    already = True;
+                    break;
+                }
+            }
+            if already { continue; }
+
+            doc = cls.__doc__ or "";
+            doc = doc.strip().split("\n")[0] if doc.strip() else "";
+            if doc == wname + "()" { doc = ""; }
+            params2: list = [];
+            skip_fields2 = ["reports", "_jac_entry_funcs_", "_jac_exit_funcs_"];
+            annotations = getattr(cls, "__annotations__", {});
+            for (field_name, field_type) in annotations.items() {
+                if not field_name.startswith("_") and field_name not in skip_fields2 {
+                    default_val = getattr(cls, field_name, None);
+                    type_str = str(field_type);
+                    if type_str.startswith("<class '") { type_str = type_str[8:-2]; }
+                    params2.append({
+                        "name": field_name,
+                        "type": type_str,
+                        "default": str(default_val) if default_val is not None else None
+                    });
+                }
+            }
+            walkers.append({
+                "name": wname,
+                "module": getattr(cls, "__module__", ""),
+                "type": "walker",
+                "description": doc,
+                "params": params2
+            });
+        }
+
         report walkers;
     }
 }
 
 walker:pub run_walker_test {
-    """Execute a named walker and record the result."""
+    """Execute a named walker by dynamically spawning it on root."""
 
     has walker_name: str,
         payload: dict = {};
 
     can execute with Root entry {
         import from datetime { datetime }
+        import from jaclang { JacRuntime as Jac }
+        import from jaclang.runtimelib.context { CallState }
 
         existing = [here -->](?:StudioRoot);
         studio = existing[0] if len(existing) > 0 else (here ++> StudioRoot(initialized=True, created_at=datetime.utcnow().isoformat()))[0];
@@ -194,10 +271,53 @@ walker:pub run_walker_test {
         start_time = time.time();
         result_data: dict = {};
         status = "error";
+        reports: list = [];
 
         try {
-            result_data = {"info": f"Walker '{self.walker_name}' invoked", "payload": self.payload};
+            # Find the walker class
+            target_module = "__main__";
+            for mod_name in list(Jac.loaded_modules.keys()) + ["__main__"] {
+                if self.walker_name in Jac.list_walkers(mod_name) {
+                    target_module = mod_name;
+                    break;
+                }
+            }
+
+            walker_cls = Jac.get_archetype(target_module, self.walker_name);
+            if walker_cls is None {
+                raise ValueError(f"Walker '{self.walker_name}' not found in module '{target_module}'");
+            }
+
+            # Replicate the server's spawn pattern:
+            # 1. Create fresh call_state (save/restore outer)
+            # 2. Use Jac.spawn() (not spawn_call)
+            # 3. Drain reports from the call_state queue
+            ctx = Jac.get_context();
+            inner_cs = CallState();
+            inner_token = ctx.call_state.set(inner_cs);
+
+            try {
+                w = walker_cls(**(self.payload if self.payload else {}));
+                root_node = ctx.get_root();
+                Jac.spawn(w, root_node);
+                # Signal end and drain reports (same as server)
+                inner_cs.reports.put_nowait(inner_cs._sentinel);
+                inner_reports: list = [];
+                while not inner_cs.reports.empty() {
+                    item = inner_cs.reports.get_nowait();
+                    if item is not inner_cs._sentinel {
+                        inner_reports.append(item);
+                    }
+                }
+                reports = inner_reports;
+            } finally {
+                ctx.call_state.reset(inner_token);
+            }
+
+            result_data = {"reports": reports};
             status = "success";
+        } except Exception as e {
+            result_data = {"error": str(e)};
         } except Exception as e {
             result_data = {"error": str(e)};
         }
@@ -205,6 +325,7 @@ walker:pub run_walker_test {
         elapsed = int((time.time() - start_time) * 1000);
         now_str = datetime.utcnow().isoformat();
 
+        # Record the run in the Studio graph
         studio ++> WalkerRun(
             walker_name=self.walker_name,
             payload=self.payload,
@@ -219,7 +340,8 @@ walker:pub run_walker_test {
             "walker_name": self.walker_name,
             "status": status,
             "duration_ms": elapsed,
-            "result": result_data
+            "result": result_data,
+            "reports": reports
         };
     }
 }
