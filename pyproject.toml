@@ -1,0 +1,31 @@
+[project]
+name = "jaseci-studio"
+version = "0.1.0"
+description = "Developer workbench for building, testing, and operating Jac applications."
+authors = [{ name = "Jaseci Labs" }]
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = [
+    "jaclang>=0.12.0,<0.13",
+    "jaseci>=2.3.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+]
+enterprise = [
+    "jaseci-enterprise>=0.3.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
