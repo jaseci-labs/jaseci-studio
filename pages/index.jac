@@ -1,7 +1,7 @@
 cl import from "@jac/runtime" { Link }
 
 cl {
-    sv import from ..main { get_dashboard, get_health, get_run_history }
+    sv import from ..main { init_studio, get_dashboard, get_health, get_run_history }
 
     def:pub page -> JsxElement {
         has stats: dict = {},
@@ -10,6 +10,13 @@ cl {
             loading: bool = true;
 
         async can with entry {
+            # Auto-bootstrap on first load
+            try {
+                root spawn init_studio();
+            } except Exception as e {
+                print("Init error:", e);
+            }
+
             try {
                 dash_result = root spawn get_dashboard();
                 if dash_result.reports and len(dash_result.reports) > 0 {
