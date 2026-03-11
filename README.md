@@ -49,7 +49,7 @@ Developer workbench for building, testing, and operating [Jac](https://github.co
 pip install jaseci-studio
 cd jaseci-studio
 jac start --dev
-# -> http://localhost:8000/cl/app
+# -> http://localhost:8001/
 ```
 
 ## Development
@@ -70,13 +70,13 @@ jaseci-studio/
 ├── models.jac               # Jac: graph nodes (StudioRoot, WalkerRun, ModelConfig, etc.)
 ├── walkers.jac              # Jac: all backend walkers (:pub endpoints)
 ├── pages/                   # jac-client file-based routing (frontend)
-│   ├── layout.cl.jac        # Root layout with sidebar navigation
-│   ├── index.cl.jac         # Dashboard (/)
-│   ├── workbench.cl.jac     # Walker testing (/workbench)
-│   ├── graph.cl.jac         # Graph explorer (/graph)
-│   ├── gateway.cl.jac       # AI model config (/gateway)
-│   ├── scheduler.cl.jac     # Cron/webhook management (/scheduler)
-│   └── sandbox.cl.jac       # Jac code execution (/sandbox)
+│   ├── layout.jac           # Root layout with sidebar navigation
+│   ├── index.jac            # Dashboard (/)
+│   ├── workbench.jac        # Walker testing (/workbench)
+│   ├── graph.jac            # Graph explorer (/graph)
+│   ├── gateway.jac          # AI model config (/gateway)
+│   ├── scheduler.jac        # Cron/webhook management (/scheduler)
+│   └── sandbox.jac          # Jac code execution (/sandbox)
 ├── styles/
 │   └── studio.css           # Dark-theme CSS
 ├── src/jaseci_studio/       # Python (minimal — plugin + licensing only)
@@ -106,6 +106,31 @@ All walkers are `:pub` and become HTTP endpoints via `jac start`:
 | `record_cost` / `get_cost_summary` | LLM cost tracking |
 | `create_schedule` / `list_schedules` / `toggle_schedule` / `delete_schedule` | Schedule CRUD |
 | `run_sandbox` / `get_sandbox_history` | Code execution |
+
+## Roadmap
+
+| Feature | Status |
+|---------|--------|
+| Walker Workbench | Done |
+| Dashboard with stats | Done |
+| Graph Explorer | Done |
+| AI Gateway (model CRUD) | Done |
+| Scheduler (cron jobs) | Done |
+| Sandbox (code execution) | Done |
+| Visual Agent Builder (n8n-style flow editor) | Planned |
+| Eval Runner (quality evaluation dashboard) | Planned |
+| Deployment Manager (Helm, GitHub Actions) | Planned |
+| Observability (traces, logs, latency charts) | Planned |
+| Multi-org dashboard (Enterprise) | Planned |
+
+### Visual Agent Builder (planned)
+
+An n8n-style drag-and-drop flow editor for building Jac agent pipelines visually. Uses React Flow for the canvas and generates native `.jac` code from the visual graph. Key capabilities:
+
+- **Node palette**: walker, LLM (by_llm), decision, transform, trigger
+- **Live preview via HMR**: flow changes write `.jac` files, `jac start --dev` hot-reloads instantly
+- **Execution visualization**: highlight flow paths after walker runs
+- **Portable output**: generated Jac code runs natively without the builder
 
 ## License
 
