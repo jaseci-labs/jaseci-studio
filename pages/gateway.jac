@@ -63,7 +63,7 @@ cl {
         async def handle_remove(model_name: str) -> None {
             try {
                 root spawn remove_model(name=model_name);
-                models = [m for m in models if m.get("name", "") != model_name];
+                models = [m for m in models if m["name"] != model_name];
             } except Exception as e {
                 print("Remove error:", e);
             }
@@ -108,11 +108,11 @@ cl {
                         <div className="stat-label">Models Configured</div>
                     </div>
                     <div className="stat-card info-stripe">
-                        <div className="stat-value info">{costs.get("total_requests", 0)}</div>
+                        <div className="stat-value info">{costs["total_requests"] or 0}</div>
                         <div className="stat-label">Total Requests</div>
                     </div>
                     <div className="stat-card success-stripe">
-                        <div className="stat-value success">${costs.get("total_cost_usd", 0)}</div>
+                        <div className="stat-value success">${costs["total_cost_usd"] or 0}</div>
                         <div className="stat-label">Total Cost (USD)</div>
                     </div>
                 </div>
@@ -190,20 +190,20 @@ cl {
                 </div>
                 or <div>
                     {[
-                        <div key={m.get("name", "")} className="model-card">
+                        <div key={m["name"]} className="model-card">
                             <div className="model-icon">
-                                {provider_icon.get(m.get("provider", ""), "?")}
+                                {provider_icon[m["provider"]] or "?"}
                             </div>
                             <div className="model-info">
-                                <div className="model-name">{m.get("name", "")}</div>
+                                <div className="model-name">{m["name"]}</div>
                                 <div className="model-meta">
-                                    {m.get("provider", "")} / <span className="mono">{m.get("model_id", "")}</span>
+                                    {m["provider"]} / <span className="mono">{m["model_id"]}</span>
                                 </div>
                             </div>
                             <div className="model-actions">
                                 <button
                                     className="btn btn-danger btn-sm"
-                                    onClick={lambda -> None { handle_remove(m.get("name", "")); }}
+                                    onClick={lambda -> None { handle_remove(m["name"]); }}
                                 >
                                     Remove
                                 </button>

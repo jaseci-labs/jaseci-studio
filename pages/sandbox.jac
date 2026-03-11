@@ -114,13 +114,12 @@ cl {
                                     result
                                     and <div>
                                         <div style={{"display": "flex", "alignItems": "center", "gap": "8px", "marginBottom": "12px"}}>
-                                            <span className={"badge " + ("badge-success" if result.get("status", "") == "success" else "badge-error")}>
+                                            <span className={"badge " + ("badge-success" if result["status"] == "success" else "badge-error")}>
                                                 <span className="badge-dot"></span>
-                                                {result.get("status", "unknown")}
+                                                {result["status"]}
                                             </span>
-                                            {result.get("duration_ms", None) and <span className="text-dim" style={{"fontSize": "12px"}}>{result.get("duration_ms", 0)}ms</span>}
                                         </div>
-                                        <div className="code-output">{JSON.stringify(result.get("output", result), None, 2)}</div>
+                                        <div className="code-output">{JSON.stringify(result["output"] or result, None, 2)}</div>
                                     </div>
                                     or <div className="empty-state">
                                         <div className="empty-icon">[ ]</div>
@@ -135,19 +134,19 @@ cl {
                                     or <div>
                                         {[
                                             <div
-                                                key={s.get("executed_at", "")}
+                                                key={s["executed_at"]}
                                                 className="history-item"
-                                                onClick={lambda -> None { code = s.get("code", ""); }}
+                                                onClick={lambda -> None { code = s["code"]; }}
                                             >
-                                                <div className={"history-dot " + s.get("status", "")}></div>
+                                                <div className={"history-dot " + s["status"]}></div>
                                                 <div className="history-info">
                                                     <div className="history-name" style={{"fontFamily": "var(--mono)", "fontSize": "12px"}}>
-                                                        {s.get("code", "").split("\n")[0]}
+                                                        {s["code"].split("\n")[0]}
                                                     </div>
-                                                    <div className="history-meta">{s.get("executed_at", "")}</div>
+                                                    <div className="history-meta">{s["executed_at"]}</div>
                                                 </div>
                                                 <div className="history-time">
-                                                    <span className={"badge badge-" + s.get("status", "")}>{s.get("status", "")}</span>
+                                                    <span className={"badge badge-" + s["status"]}>{s["status"]}</span>
                                                 </div>
                                             </div>
                                             for s in sessions

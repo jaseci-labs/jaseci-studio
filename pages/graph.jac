@@ -12,8 +12,8 @@ cl {
                 result = root spawn inspect_graph();
                 if result.reports and len(result.reports) > 0 {
                     data = result.reports[0];
-                    nodes = data.get("nodes", []);
-                    edges = data.get("edges", []);
+                    nodes = data["nodes"] or [];
+                    edges = data["edges"] or [];
                 }
             } except Exception as e {
                 print("Graph error:", e);
@@ -60,12 +60,12 @@ cl {
                             <div className="graph-grid">
                                 {[
                                     <div
-                                        key={n.get("id", "")}
-                                        className={"graph-node-card" + (" root-node" if n.get("type", "") == "Root" else "") + (" selected" if selected and selected.get("id", "") == n.get("id", "") else "")}
+                                        key={n["id"]}
+                                        className={"graph-node-card" + (" root-node" if n["type"] == "Root" else "") + (" selected" if selected and selected["id"] == n["id"] else "")}
                                         onClick={lambda -> None { selected = n; }}
                                     >
-                                        <div className="node-type">{n.get("type", "unknown")}</div>
-                                        <div className="node-id">{n.get("id", "")}</div>
+                                        <div className="node-type">{n["type"]}</div>
+                                        <div className="node-id">{n["id"]}</div>
                                     </div>
                                     for n in nodes
                                 ]}
@@ -83,11 +83,11 @@ cl {
                                 <thead><tr><th>Source</th><th></th><th>Target</th><th>Type</th></tr></thead>
                                 <tbody>
                                     {[
-                                        <tr key={e.get("from", "") + e.get("to", "")}>
-                                            <td className="mono truncate" style={{"maxWidth": "120px"}}>{e.get("from", "")}</td>
+                                        <tr key={e["from"] + e["to"]}>
+                                            <td className="mono truncate" style={{"maxWidth": "120px"}}>{e["from"]}</td>
                                             <td style={{"color": "var(--text-muted)", "textAlign": "center"}}>-&gt;</td>
-                                            <td className="mono truncate" style={{"maxWidth": "120px"}}>{e.get("to", "")}</td>
-                                            <td><span className="badge badge-info">{e.get("type", "")}</span></td>
+                                            <td className="mono truncate" style={{"maxWidth": "120px"}}>{e["to"]}</td>
+                                            <td><span className="badge badge-info">{e["type"]}</span></td>
                                         </tr>
                                         for e in edges
                                     ]}
@@ -104,17 +104,17 @@ cl {
                             {selected
                             and <div>
                                 <div style={{"display": "flex", "alignItems": "center", "gap": "10px", "marginBottom": "16px"}}>
-                                    <div style={{"width": "36px", "height": "36px", "borderRadius": "var(--radius)", "background": (selected.get("type", "") == "Root" and "var(--success-bg)" or "var(--info-bg)"), "display": "flex", "alignItems": "center", "justifyContent": "center", "fontSize": "14px", "fontWeight": "600", "color": (selected.get("type", "") == "Root" and "var(--success)" or "var(--info)")}}>
-                                        {selected.get("type", "?")[0]}
+                                    <div style={{"width": "36px", "height": "36px", "borderRadius": "var(--radius)", "background": (selected["type"] == "Root" and "var(--success-bg)" or "var(--info-bg)"), "display": "flex", "alignItems": "center", "justifyContent": "center", "fontSize": "14px", "fontWeight": "600", "color": (selected["type"] == "Root" and "var(--success)" or "var(--info)")}}>
+                                        {selected["type"][0]}
                                     </div>
                                     <div>
-                                        <div style={{"fontWeight": "600", "fontSize": "15px"}}>{selected.get("type", "unknown")}</div>
-                                        <div className="mono" style={{"fontSize": "11px", "color": "var(--text-muted)"}}>{selected.get("id", "")}</div>
+                                        <div style={{"fontWeight": "600", "fontSize": "15px"}}>{selected["type"]}</div>
+                                        <div className="mono" style={{"fontSize": "11px", "color": "var(--text-muted)"}}>{selected["id"]}</div>
                                     </div>
                                 </div>
                                 <div className="section-title">Properties</div>
                                 <div className="code-output">
-                                    {JSON.stringify(selected.get("props", {}), None, 2)}
+                                    {JSON.stringify(selected["props"], None, 2)}
                                 </div>
                             </div>
                             or <div className="empty-state">

@@ -59,13 +59,13 @@ cl {
         async def handle_delete(schedule_id: str) -> None {
             try {
                 root spawn delete_schedule(schedule_id=schedule_id);
-                schedules = [s for s in schedules if s.get("id", "") != schedule_id];
+                schedules = [s for s in schedules if s["id"] != schedule_id];
             } except Exception as e {
                 print("Delete error:", e);
             }
         }
 
-        active_count = len([s for s in schedules if s.get("enabled", false)]);
+        active_count = len([s for s in schedules if s["enabled"]]);
 
         if loading {
             return
@@ -155,30 +155,30 @@ cl {
                 </div>
                 or <div>
                     {[
-                        <div key={s.get("id", s.get("walker_name", ""))} className="schedule-item">
-                            <div className="schedule-icon" style={{"color": (s.get("enabled", false) and "var(--success)" or "var(--text-muted)")}}>
-                                {s.get("enabled", false) and ">>>" or "| |"}
+                        <div key={s["id"]} className="schedule-item">
+                            <div className="schedule-icon" style={{"color": (s["enabled"] and "var(--success)" or "var(--text-muted)")}}>
+                                {s["enabled"] and ">>>" or "| |"}
                             </div>
                             <div className="schedule-info">
-                                <div className="schedule-name">{s.get("walker_name", "")}</div>
+                                <div className="schedule-name">{s["walker_name"]}</div>
                                 <div className="schedule-meta">
-                                    <span className="mono">{s.get("cron_expr", "")}</span>
-                                    <span className={"badge " + ("badge-success" if s.get("enabled", false) else "badge-warning")}>
+                                    <span className="mono">{s["cron_expr"]}</span>
+                                    <span className={"badge " + ("badge-success" if s["enabled"] else "badge-warning")}>
                                         <span className="badge-dot"></span>
-                                        {s.get("enabled", false) and "active" or "paused"}
+                                        {s["enabled"] and "active" or "paused"}
                                     </span>
                                 </div>
                             </div>
                             <div className="schedule-actions">
                                 <button
                                     className="btn btn-sm"
-                                    onClick={lambda -> None { handle_toggle(s.get("id", "")); }}
+                                    onClick={lambda -> None { handle_toggle(s["id"]); }}
                                 >
-                                    {s.get("enabled", false) and "Pause" or "Enable"}
+                                    {s["enabled"] and "Pause" or "Enable"}
                                 </button>
                                 <button
                                     className="btn btn-danger btn-sm"
-                                    onClick={lambda -> None { handle_delete(s.get("id", "")); }}
+                                    onClick={lambda -> None { handle_delete(s["id"]); }}
                                 >
                                     Delete
                                 </button>

@@ -1,8 +1,6 @@
-"""Studio walkers — all backend endpoints for the developer workbench.
+"""Studio walkers — all backend endpoints for the developer workbench."""
 
-NOTE: This file is included from main.jac via `include walkers;`.
-Node/edge types are available from `include models;` which runs first.
-"""
+include models;
 
 import json;
 import time;

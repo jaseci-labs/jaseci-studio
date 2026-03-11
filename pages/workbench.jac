@@ -95,8 +95,8 @@ cl {
                                 >
                                     <option value="">Choose a walker...</option>
                                     {[
-                                        <option key={w.get("name", "")} value={w.get("name", "")}>
-                                            {w.get("name", "")}
+                                        <option key={w["name"]} value={w["name"]}>
+                                            {w["name"]}
                                         </option>
                                         for w in walkers
                                     ]}
@@ -153,14 +153,14 @@ cl {
                                 and <div className="empty">No runs recorded</div>
                                 or <div>
                                     {[
-                                        <div key={r.get("walker_name", "") + r.get("executed_at", "")} className="history-item">
-                                            <div className={"history-dot " + r.get("status", "")}></div>
+                                        <div key={r["walker_name"] + r["executed_at"]} className="history-item">
+                                            <div className={"history-dot " + r["status"]}></div>
                                             <div className="history-info">
-                                                <div className="history-name">{r.get("walker_name", "")}</div>
-                                                <div className="history-meta">{r.get("duration_ms", 0)}ms</div>
+                                                <div className="history-name">{r["walker_name"]}</div>
+                                                <div className="history-meta">{r["duration_ms"]}ms</div>
                                             </div>
                                             <div className="history-time">
-                                                <span className={"badge badge-" + r.get("status", "")}>{r.get("status", "")}</span>
+                                                <span className={"badge badge-" + r["status"]}>{r["status"]}</span>
                                             </div>
                                         </div>
                                         for r in history
@@ -181,15 +181,15 @@ cl {
                             or <div>
                                 {[
                                     <div
-                                        key={w.get("name", "")}
+                                        key={w["name"]}
                                         className="history-item"
-                                        onClick={lambda -> None { selected = w.get("name", ""); }}
+                                        onClick={lambda -> None { selected = w["name"]; }}
                                         style={{"cursor": "pointer"}}
                                     >
-                                        <div style={{"width": "8px", "height": "8px", "borderRadius": "50%", "background": (selected == w.get("name", "") and "var(--accent)" or "var(--border-light)"), "flexShrink": "0"}}></div>
+                                        <div style={{"width": "8px", "height": "8px", "borderRadius": "50%", "background": (selected == w["name"] and "var(--accent)" or "var(--border-light)"), "flexShrink": "0"}}></div>
                                         <div className="history-info">
-                                            <div className="history-name">{w.get("name", "")}</div>
-                                            <div className="history-meta">{w.get("type", "walker")}</div>
+                                            <div className="history-name">{w["name"]}</div>
+                                            <div className="history-meta">{w["type"]}</div>
                                         </div>
                                     </div>
                                     for w in walkers

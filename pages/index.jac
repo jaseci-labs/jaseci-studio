@@ -55,12 +55,12 @@ cl {
                 </div>;
         }
 
-        total = stats.get("total_runs", 0);
-        successes = stats.get("success_runs", 0);
-        errors = stats.get("error_runs", 0);
-        models = stats.get("model_count", 0);
-        schedules = stats.get("schedule_count", 0);
-        h_status = health.get("status", "unknown");
+        total = stats["total_runs"] or 0;
+        successes = stats["success_runs"] or 0;
+        errors = stats["error_runs"] or 0;
+        models = stats["model_count"] or 0;
+        schedules = stats["schedule_count"] or 0;
+        h_status = health["status"] or "unknown";
 
         return
             <div className="page">
@@ -145,15 +145,15 @@ cl {
                             </div>
                             or <div>
                                 {[
-                                    <div key={r.get("walker_name", "") + r.get("executed_at", "")} className="history-item">
-                                        <div className={"history-dot " + r.get("status", "")}>
+                                    <div key={r["walker_name"] + r["executed_at"]} className="history-item">
+                                        <div className={"history-dot " + r["status"]}>
                                         </div>
                                         <div className="history-info">
-                                            <div className="history-name">{r.get("walker_name", "")}</div>
-                                            <div className="history-meta">{r.get("duration_ms", 0)}ms</div>
+                                            <div className="history-name">{r["walker_name"]}</div>
+                                            <div className="history-meta">{r["duration_ms"]}ms</div>
                                         </div>
                                         <div className="history-time">
-                                            <span className={"badge badge-" + r.get("status", "")}>{r.get("status", "")}</span>
+                                            <span className={"badge badge-" + r["status"]}>{r["status"]}</span>
                                         </div>
                                     </div>
                                     for r in recent_runs
@@ -177,15 +177,15 @@ cl {
                                 </div>
                                 <div style={{"display": "flex", "justifyContent": "space-between", "fontSize": "13px"}}>
                                     <span className="text-secondary">Uptime</span>
-                                    <span className="mono">{health.get("uptime_seconds", 0)}s</span>
+                                    <span className="mono">{health["uptime_seconds"] or 0}s</span>
                                 </div>
                                 <div style={{"display": "flex", "justifyContent": "space-between", "fontSize": "13px"}}>
                                     <span className="text-secondary">PID</span>
-                                    <span className="mono">{health.get("pid", "-")}</span>
+                                    <span className="mono">{health["pid"] or "-"}</span>
                                 </div>
                                 <div style={{"display": "flex", "justifyContent": "space-between", "fontSize": "13px"}}>
                                     <span className="text-secondary">Python</span>
-                                    <span className="mono">{health.get("python_version", "-")}</span>
+                                    <span className="mono">{health["python_version"] or "-"}</span>
                                 </div>
                             </div>
                         </div>
