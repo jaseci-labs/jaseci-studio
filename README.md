@@ -1,10 +1,8 @@
 # Jaseci Studio
 
-Developer workbench for building, testing, and operating [Jac](https://github.com/jaseci-labs/jaseci) applications. Provides a visual graph explorer, AI gateway, eval dashboard, cron/webhook triggers, and sandbox execution — all accessible from a single UI at `/_studio`.
+Developer workbench for building, testing, and operating [Jac](https://github.com/jaseci-labs/jaseci) applications. Built entirely in Jac using [jac-client](https://github.com/jaseci-labs/jaseci) for the full-stack experience — backend walkers and frontend UI in one language.
 
 ## Architecture
-
-Jaseci Studio is the **product layer** built on top of the Jaseci ecosystem:
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -17,12 +15,10 @@ Jaseci Studio is the **product layer** built on top of the Jaseci ecosystem:
 │  jac-scale (OSS)                                │
 │  PostgreSQL · Redis · Auth · Admin              │
 ├─────────────────────────────────────────────────┤
-│  jaclang (OSS)                                  │
-│  Compiler · Runtime · CLI                       │
+│  jaclang (OSS) + jac-client                     │
+│  Compiler · Runtime · CLI · Full-stack UI       │
 └─────────────────────────────────────────────────┘
 ```
-
-Core logic is written in **Jac** (graph models, walkers). Python is used only for the plugin entry point, FastAPI routing, and license gating.
 
 ## Feature Tiers
 
@@ -51,12 +47,9 @@ Core logic is written in **Jac** (graph models, walkers). Python is used only fo
 
 ```bash
 pip install jaseci-studio
-
-# In your Jac app, mount Studio in plugin.py or directly:
-from jaseci_studio.plugin import mount_studio
-mount_studio(app)
-
-# -> http://localhost:8000/_studio  (Studio UI)
+cd jaseci-studio
+jac start --dev
+# -> http://localhost:8000/cl/app
 ```
 
 ## Development
@@ -65,52 +58,54 @@ mount_studio(app)
 git clone https://github.com/jaseci-labs/jaseci-studio
 cd jaseci-studio
 pip install -e ".[dev]"
-python3.12 -m pytest tests/ -q
+jac start --dev
 ```
 
 ## Project Structure
 
 ```
-src/jaseci_studio/
-├── models.jac          # Jac: graph nodes (StudioRoot, WalkerRun, ModelConfig, etc.)
-├── workbench.jac       # Jac: walker testing, graph inspection walkers
-├── dashboard.jac       # Jac: metrics aggregation, health walkers
-├── gateway.jac         # Jac: AI model config CRUD, cost tracking walkers
-├── scheduler.jac       # Jac: cron/webhook schedule management walkers
-├── sandbox.jac         # Jac: isolated code execution walkers
-├── plugin.py           # Python: mount_studio() entry point
-├── api/
-│   └── routes.py       # Python: FastAPI router (thin layer over Jac walkers)
-├── utils/
-│   └── licensing.py    # Python: tier detection and feature gating
-└── client/
-    └── dist/           # Static: vanilla HTML/JS/CSS SPA
-        ├── index.html
-        ├── app.js
-        └── style.css
+jaseci-studio/
+├── jac.toml                 # jac-client project config
+├── main.jac                 # Entry point: includes models + walkers, defines cl { app() }
+├── models.jac               # Jac: graph nodes (StudioRoot, WalkerRun, ModelConfig, etc.)
+├── walkers.jac              # Jac: all backend walkers (:pub endpoints)
+├── pages/                   # jac-client file-based routing (frontend)
+│   ├── layout.cl.jac        # Root layout with sidebar navigation
+│   ├── index.cl.jac         # Dashboard (/)
+│   ├── workbench.cl.jac     # Walker testing (/workbench)
+│   ├── graph.cl.jac         # Graph explorer (/graph)
+│   ├── gateway.cl.jac       # AI model config (/gateway)
+│   ├── scheduler.cl.jac     # Cron/webhook management (/scheduler)
+│   └── sandbox.cl.jac       # Jac code execution (/sandbox)
+├── styles/
+│   └── studio.css           # Dark-theme CSS
+├── src/jaseci_studio/       # Python (minimal — plugin + licensing only)
+│   ├── plugin.py            # mount_studio() for embedding in existing servers
+│   ├── api/routes.py        # FastAPI fallback routes (standalone mode)
+│   └── utils/licensing.py   # Tier detection and feature gating
+├── pyproject.toml
+└── tests/
 ```
 
-## API Endpoints
+**Code split: ~85% Jac / ~15% Python.**
 
-All endpoints are prefixed with `/_studio/api`:
+## Walker Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/dashboard` | Aggregated stats |
-| GET | `/health` | Runtime health |
-| GET | `/walkers` | List registered walkers |
-| POST | `/walkers/run` | Execute a walker |
-| GET | `/walkers/history` | Run history |
-| GET | `/graph` | Graph structure for visualization |
-| GET/POST | `/models` | AI model config CRUD |
-| DELETE | `/models/{model_id}` | Remove model |
-| GET/POST | `/costs` | LLM cost tracking |
-| GET/POST | `/schedules` | Schedule CRUD |
-| PUT | `/schedules/toggle` | Enable/disable schedule |
-| DELETE | `/schedules/{name}` | Remove schedule |
-| POST | `/sandbox/run` | Execute Jac code |
-| GET | `/sandbox/history` | Sandbox session history |
-| GET | `/tier` | Current license tier |
+All walkers are `:pub` and become HTTP endpoints via `jac start`:
+
+| Walker | Description |
+|--------|-------------|
+| `init_studio` | Bootstrap Studio subgraph |
+| `get_dashboard` | Aggregated stats |
+| `get_health` | Runtime health info |
+| `list_walkers` | Available walker types |
+| `run_walker_test` | Execute a walker |
+| `get_run_history` | Run history |
+| `inspect_graph` | Graph structure for visualization |
+| `add_model` / `list_models` / `remove_model` | AI model CRUD |
+| `record_cost` / `get_cost_summary` | LLM cost tracking |
+| `create_schedule` / `list_schedules` / `toggle_schedule` / `delete_schedule` | Schedule CRUD |
+| `run_sandbox` / `get_sandbox_history` | Code execution |
 
 ## License
 

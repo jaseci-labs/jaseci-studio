@@ -14,22 +14,26 @@ TIER_ORDER = {"free": 0, "pro": 1, "enterprise": 2}
 def get_license_tier() -> str:
     """Detect the current license tier.
 
-    1. If jaseci-enterprise is installed, delegates to its license validator.
-    2. Falls back to "free" when enterprise is absent or has no key.
+    Priority:
+    1. JASECI_LICENSE_TIER env var (explicit override).
+    2. If jaseci-enterprise is installed → "enterprise".
+    3. JASECI_LICENSE_KEY env var → "pro".
+    4. Fallback → "free".
     """
+    override = os.getenv("JASECI_LICENSE_TIER", "")
+    if override in TIER_ORDER:
+        return override
+
     try:
-        from jaseci_enterprise.plugin import get_license_tier as _enterprise_tier
-        return _enterprise_tier()
+        import jaseci_enterprise  # noqa: F401
+        return "enterprise"
     except ImportError:
         pass
 
-    # No enterprise package — check for a standalone key (future)
     key = os.getenv("JASECI_LICENSE_KEY", "")
-    if not key:
-        return "free"
+    if key:
+        return "pro"
 
-    # For now, any key without enterprise = free
-    logger.debug("License key present but jaseci-enterprise not installed.")
     return "free"
 
 
