@@ -258,56 +258,75 @@ walker:pub inspect_graph {
         nodes: list = [],
         edges_list: list = [],
         seen: list = [],
+        parent_id: str = "",
         current_depth: int = 0;
 
     can start with Root entry {
         node_id = str(id(here));
         self.seen.append(node_id);
-        self.nodes.append({
-            "id": node_id,
-            "type": "Root",
-            "props": {}
-        });
+        self.nodes.append({"id": node_id, "type": "Root", "props": {}});
         if self.current_depth < self.max_depth {
             self.current_depth += 1;
+            self.parent_id = node_id;
             visit [-->];
         }
     }
 
-    can inspect with entry {
+    can visit_studio with StudioRoot entry {
         node_id = str(id(here));
-        parent_id = "";
-        if len(self.seen) > 0 {
-            parent_id = self.seen[-1];
-        }
         if node_id not in self.seen {
             self.seen.append(node_id);
-            props: dict = {};
-            node_type = type(here).__name__;
-            for (k, v) in vars(here).items() {
-                if not k.startswith("_") {
-                    try {
-                        json.dumps(v);
-                        props[k] = v;
-                    } except Exception {
-                        props[k] = str(v);
-                    }
-                }
-            }
-            self.nodes.append({
-                "id": node_id,
-                "type": node_type,
-                "props": props
-            });
-            self.edges_list.append({
-                "from": parent_id,
-                "to": node_id,
-                "type": node_type
-            });
-            if self.current_depth < self.max_depth {
-                self.current_depth += 1;
-                visit [-->];
-            }
+            self.nodes.append({"id": node_id, "type": "StudioRoot", "props": {"initialized": here.initialized, "created_at": here.created_at}});
+            self.edges_list.append({"from": self.parent_id, "to": node_id, "type": "StudioRoot"});
+            saved_parent = self.parent_id;
+            self.parent_id = node_id;
+            visit [-->];
+            self.parent_id = saved_parent;
+        }
+    }
+
+    can visit_run with WalkerRun entry {
+        node_id = str(id(here));
+        if node_id not in self.seen {
+            self.seen.append(node_id);
+            self.nodes.append({"id": node_id, "type": "WalkerRun", "props": {"walker_name": here.walker_name, "status": here.status, "duration_ms": here.duration_ms}});
+            self.edges_list.append({"from": self.parent_id, "to": node_id, "type": "WalkerRun"});
+        }
+    }
+
+    can visit_model with ModelConfig entry {
+        node_id = str(id(here));
+        if node_id not in self.seen {
+            self.seen.append(node_id);
+            self.nodes.append({"id": node_id, "type": "ModelConfig", "props": {"name": here.name, "model_id": here.model_id, "provider": here.provider}});
+            self.edges_list.append({"from": self.parent_id, "to": node_id, "type": "ModelConfig"});
+        }
+    }
+
+    can visit_cost with CostRecord entry {
+        node_id = str(id(here));
+        if node_id not in self.seen {
+            self.seen.append(node_id);
+            self.nodes.append({"id": node_id, "type": "CostRecord", "props": {"model_id": here.model_id, "cost_usd": here.cost_usd}});
+            self.edges_list.append({"from": self.parent_id, "to": node_id, "type": "CostRecord"});
+        }
+    }
+
+    can visit_schedule with Schedule entry {
+        node_id = str(id(here));
+        if node_id not in self.seen {
+            self.seen.append(node_id);
+            self.nodes.append({"id": node_id, "type": "Schedule", "props": {"id": here.id, "walker_name": here.walker_name, "cron_expr": here.cron_expr, "enabled": here.enabled}});
+            self.edges_list.append({"from": self.parent_id, "to": node_id, "type": "Schedule"});
+        }
+    }
+
+    can visit_session with SandboxSession entry {
+        node_id = str(id(here));
+        if node_id not in self.seen {
+            self.seen.append(node_id);
+            self.nodes.append({"id": node_id, "type": "SandboxSession", "props": {"session_id": here.session_id, "status": here.status}});
+            self.edges_list.append({"from": self.parent_id, "to": node_id, "type": "SandboxSession"});
         }
     }
 

@@ -10,7 +10,6 @@ cl {
             loading: bool = true;
 
         async can with entry {
-            # Auto-bootstrap on first load
             try {
                 root spawn init_studio();
             } except Exception as e {
@@ -79,27 +78,27 @@ cl {
 
                 <div className="stats-grid">
                     <div className="stat-card accent-stripe">
-                        <div className="stat-icon">~</div>
+                        <div className="stat-icon">{"▶"}</div>
                         <div className="stat-value accent">{total}</div>
                         <div className="stat-label">Total Runs</div>
                     </div>
                     <div className="stat-card success-stripe">
-                        <div className="stat-icon">+</div>
+                        <div className="stat-icon">{"✓"}</div>
                         <div className="stat-value success">{successes}</div>
                         <div className="stat-label">Successful</div>
                     </div>
                     <div className="stat-card error-stripe">
-                        <div className="stat-icon">x</div>
+                        <div className="stat-icon">{"✗"}</div>
                         <div className="stat-value error">{errors}</div>
                         <div className="stat-label">Errors</div>
                     </div>
                     <div className="stat-card info-stripe">
-                        <div className="stat-icon">&lt;/&gt;</div>
+                        <div className="stat-icon">{"⬣"}</div>
                         <div className="stat-value info">{models}</div>
                         <div className="stat-label">AI Models</div>
                     </div>
                     <div className="stat-card warning-stripe">
-                        <div className="stat-icon">:::</div>
+                        <div className="stat-icon">{"⏰"}</div>
                         <div className="stat-value warning">{schedules}</div>
                         <div className="stat-label">Schedules</div>
                     </div>
@@ -108,21 +107,21 @@ cl {
                 <div className="section-title">Quick Actions</div>
                 <div className="quick-actions" style={{"marginBottom": "24px"}}>
                     <Link to="/workbench" className="quick-action">
-                        <span className="qa-icon">&gt;_</span>
+                        <span className="qa-icon">{"⚙"}</span>
                         <div className="qa-text">
                             <div className="qa-title">Run a Walker</div>
                             <div className="qa-desc">Test and debug walkers interactively</div>
                         </div>
                     </Link>
                     <Link to="/graph" className="quick-action">
-                        <span className="qa-icon">o-o</span>
+                        <span className="qa-icon">{"⬡"}</span>
                         <div className="qa-text">
                             <div className="qa-title">Explore Graph</div>
                             <div className="qa-desc">Browse nodes and edges visually</div>
                         </div>
                     </Link>
                     <Link to="/sandbox" className="quick-action">
-                        <span className="qa-icon">[ ]</span>
+                        <span className="qa-icon">{"⌘"}</span>
                         <div className="qa-text">
                             <div className="qa-title">Open Sandbox</div>
                             <div className="qa-desc">Write and execute Jac code live</div>
@@ -139,7 +138,7 @@ cl {
                             </div>
                             {len(recent_runs) == 0
                             and <div className="empty-state">
-                                <div className="empty-icon">&gt;_</div>
+                                <div className="empty-icon">{"▶"}</div>
                                 <div className="empty-title">No runs yet</div>
                                 <div className="empty-desc">Head to the Workbench to test your first walker</div>
                             </div>

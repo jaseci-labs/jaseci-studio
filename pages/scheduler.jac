@@ -148,7 +148,7 @@ cl {
                 {len(schedules) == 0
                 and <div className="card">
                     <div className="empty-state">
-                        <div className="empty-icon">:::</div>
+                        <div className="empty-icon">{"⏰"}</div>
                         <div className="empty-title">No schedules configured</div>
                         <div className="empty-desc">Create a schedule to automatically run walkers on a cron timer</div>
                     </div>
@@ -157,7 +157,7 @@ cl {
                     {[
                         <div key={s["id"]} className="schedule-item">
                             <div className="schedule-icon" style={{"color": (s["enabled"] and "var(--success)" or "var(--text-muted)")}}>
-                                {s["enabled"] and ">>>" or "| |"}
+                                {s["enabled"] and "▶" or "⏸"}
                             </div>
                             <div className="schedule-info">
                                 <div className="schedule-name">{s["walker_name"]}</div>

@@ -142,7 +142,7 @@ cl {
                                 result
                                 and <div className="code-output">{JSON.stringify(result, None, 2)}</div>
                                 or <div className="empty-state">
-                                    <div className="empty-icon">&gt;_</div>
+                                    <div className="empty-icon">{"⚙"}</div>
                                     <div className="empty-title">No result yet</div>
                                     <div className="empty-desc">Select a walker and click Run to see output here</div>
                                 </div>

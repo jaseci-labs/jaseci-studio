@@ -44,7 +44,7 @@ cl {
 
                 {len(nodes) == 0 and <div className="card">
                     <div className="empty-state">
-                        <div className="empty-icon">o-o</div>
+                        <div className="empty-icon">{"⬡"}</div>
                         <div className="empty-title">Graph is empty</div>
                         <div className="empty-desc">Run init_studio from the Workbench to bootstrap the Studio graph, then come back here to explore it.</div>
                     </div>

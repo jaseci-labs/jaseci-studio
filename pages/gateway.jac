@@ -183,7 +183,7 @@ cl {
                 {len(models) == 0
                 and <div className="card">
                     <div className="empty-state">
-                        <div className="empty-icon">&lt;/&gt;</div>
+                        <div className="empty-icon">{"⬣"}</div>
                         <div className="empty-title">No models configured</div>
                         <div className="empty-desc">Add your first AI model to start routing requests through the gateway</div>
                     </div>

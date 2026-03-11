@@ -122,7 +122,7 @@ cl {
                                         <div className="code-output">{JSON.stringify(result["output"] or result, None, 2)}</div>
                                     </div>
                                     or <div className="empty-state">
-                                        <div className="empty-icon">[ ]</div>
+                                        <div className="empty-icon">{"⌘"}</div>
                                         <div className="empty-title">Ready to run</div>
                                         <div className="empty-desc">Write some Jac code and click Run to see output</div>
                                     </div>
