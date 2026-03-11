@@ -3,11 +3,13 @@
 include models;
 include walkers;
 
+cl import "./styles/studio.css";
+
 cl {
-    def:pub app() -> JsxElement {
-        return <div>
-            <h1>Jaseci Studio</h1>
-            <p>Developer workbench for Jac applications.</p>
-        </div>;
+    def:pub app(children: any = None) -> JsxElement {
+        return
+            <div>
+                {children}
+            </div>;
     }
 }
