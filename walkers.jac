@@ -731,10 +731,19 @@ walker:pub run_sandbox {
         status = "error";
 
         try {
+            # Unescape literal \n and \t that may arrive from the client
+            # (template strings in cl{} may double-escape newlines)
+            code_text = self.code;
+            # Check if newlines are escaped as literal backslash-n
+            if "\n" not in code_text and len(code_text) > 20 {
+                # No real newlines — likely escaped; decode unicode escapes
+                import codecs;
+                code_text = codecs.decode(code_text, "unicode_escape");
+            }
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".jac", delete=False
             ) as f {
-                f.write(self.code);
+                f.write(code_text);
                 tmp_path = f.name;
             }
             try {
