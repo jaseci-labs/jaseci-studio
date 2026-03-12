@@ -2,7 +2,6 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 dist/
-!src/jaseci_studio/client/dist/
 build/
 .eggs/
 *.egg

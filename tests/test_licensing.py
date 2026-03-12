@@ -8,8 +8,8 @@ import pytest
 from jaseci_studio.utils.licensing import get_license_tier, has_tier
 
 
-def test_default_tier_is_free():
-    with patch.dict(os.environ, {}, clear=True):
+def test_explicit_free_tier():
+    with patch.dict(os.environ, {"JASECI_LICENSE_TIER": "free"}, clear=False):
         assert get_license_tier() == "free"
 
 

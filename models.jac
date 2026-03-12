@@ -16,7 +16,8 @@ node WalkerRun {
 }
 
 node ModelConfig {
-    has model_id: str,
+    has name: str,
+        model_id: str = "",
         provider: str = "",
         api_key_env: str = "",
         is_default: bool = False,
@@ -33,7 +34,7 @@ node CostRecord {
 }
 
 node Schedule {
-    has name: str,
+    has id: str,
         walker_name: str = "",
         payload: dict = {},
         cron_expr: str = "",
@@ -49,6 +50,17 @@ node SandboxSession {
         output: str = "",
         status: str = "idle",
         created_at: str = "";
+}
+
+node Task {
+    has title: str,
+        done: bool = False,
+        priority: str = "medium";
+}
+
+node Project {
+    has name: str,
+        description: str = "";
 }
 
 edge HasRun {}
