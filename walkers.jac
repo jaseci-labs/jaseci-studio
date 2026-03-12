@@ -126,9 +126,10 @@ walker:pub get_dashboard {
         error_runs = 0;
         total_cost = 0.0;
         model_count = 0;
-        schedule_count = 0;
 
         for run_node in [studio -->](?:WalkerRun) {
+            # Skip runs of studio infrastructure walkers
+            if run_node.walker_name in _STUDIO_WALKERS { continue; }
             total_runs += 1;
             if run_node.status == "success" {
                 success_runs += 1;
@@ -143,16 +144,12 @@ walker:pub get_dashboard {
         for c in [studio -->](?:CostRecord) {
             total_cost += c.cost_usd;
         }
-        for s in [studio -->](?:Schedule) {
-            schedule_count += 1;
-        }
         report {
             "total_runs": total_runs,
             "success_runs": success_runs,
             "error_runs": error_runs,
             "total_cost_usd": total_cost,
-            "model_count": model_count,
-            "schedule_count": schedule_count
+            "model_count": model_count
         };
     }
 }
@@ -1062,18 +1059,32 @@ walker:pub load_example_app {
     """Load a sample Todo app into the graph."""
 
     can bootstrap with Root entry {
-        existing = [here -->](?:Task);
-        if len(existing) > 0 {
+        # Check if already loaded by looking for Project nodes
+        has_project = False;
+        for n in [here -->] {
+            if type(n).__name__ == "Project" {
+                has_project = True;
+                break;
+            }
+        }
+        if has_project {
             report {"status": "already_loaded", "message": "Example app is already loaded."};
             disengage;
         }
 
-        here ++> Project(name="My First Project", description="A sample project to explore Jaseci Studio");
-        here ++> Task(title="Learn Jac basics", done=True, priority="high");
-        here ++> Task(title="Build a walker", done=True, priority="high");
-        here ++> Task(title="Explore the graph", done=False, priority="medium");
-        here ++> Task(title="Test AI integration", done=False, priority="low");
-        here ++> Task(title="Deploy to production", done=False, priority="medium");
+        # Create hierarchy: Root -> Project -> Tasks
+        project_node = Project(name="My First Project", description="A sample project to explore Jaseci Studio");
+        here ++> project_node;
+        t1 = Task(title="Learn Jac basics", done=True, priority="high");
+        t2 = Task(title="Build a walker", done=True, priority="high");
+        t3 = Task(title="Explore the graph", done=False, priority="medium");
+        t4 = Task(title="Test AI integration", done=False, priority="low");
+        t5 = Task(title="Deploy to production", done=False, priority="medium");
+        project_node ++> t1;
+        project_node ++> t2;
+        project_node ++> t3;
+        project_node ++> t4;
+        project_node ++> t5;
 
         report {
             "status": "loaded",
@@ -1087,21 +1098,41 @@ walker:pub list_tasks {
 
     can list_all with Root entry {
         tasks: list = [];
-        for t in [here -->](?:Task) {
-            tasks.append({"title": t.title, "done": t.done, "priority": t.priority});
+        # Find Project node, then list tasks under it
+        for p in [here -->] {
+            if type(p).__name__ == "Project" {
+                for t in [p -->] {
+                    if type(t).__name__ == "Task" {
+                        tasks.append({"title": t.title, "done": t.done, "priority": t.priority});
+                    }
+                }
+            }
         }
         report tasks;
     }
 }
 
 walker:pub add_task {
-    """Add a new task."""
+    """Add a new task to the first project."""
 
     has title: str,
         priority: str = "medium";
 
     can create with Root entry {
-        here ++> Task(title=self.title, priority=self.priority);
+        # Find Project node, add task under it
+        for p in [here -->] {
+            if type(p).__name__ == "Project" {
+                new_task = Task(title=self.title, priority=self.priority);
+                p ++> new_task;
+                report {"created": self.title, "priority": self.priority};
+                disengage;
+            }
+        }
+        # No project found — create one first
+        proj = Project(name="Default Project", description="Auto-created project");
+        here ++> proj;
+        new_task = Task(title=self.title, priority=self.priority);
+        proj ++> new_task;
         report {"created": self.title, "priority": self.priority};
     }
 }
@@ -1112,11 +1143,15 @@ walker:pub toggle_task {
     has task_title: str;
 
     can toggle with Root entry {
-        for t in [here -->](?:Task) {
-            if t.title == self.task_title {
-                t.done = not t.done;
-                report {"toggled": t.title, "done": t.done};
-                disengage;
+        for p in [here -->] {
+            if type(p).__name__ == "Project" {
+                for t in [p -->] {
+                    if type(t).__name__ == "Task" and t.title == self.task_title {
+                        t.done = not t.done;
+                        report {"toggled": t.title, "done": t.done};
+                        disengage;
+                    }
+                }
             }
         }
         report {"error": "Task not found: " + self.task_title};
@@ -1129,11 +1164,15 @@ walker:pub delete_task {
     has task_title: str;
 
     can remove with Root entry {
-        for t in [here -->](?:Task) {
-            if t.title == self.task_title {
-                del t;
-                report {"deleted": self.task_title};
-                disengage;
+        for p in [here -->] {
+            if type(p).__name__ == "Project" {
+                for t in [p -->] {
+                    if type(t).__name__ == "Task" and t.title == self.task_title {
+                        del t;
+                        report {"deleted": self.task_title};
+                        disengage;
+                    }
+                }
             }
         }
         report {"error": "Task not found: " + self.task_title};

@@ -73,7 +73,6 @@ cl {
         successes = stats["success_runs"] or 0;
         errors = stats["error_runs"] or 0;
         models = stats["model_count"] or 0;
-        schedules = stats["schedule_count"] or 0;
         h_status = health["status"] or "unknown";
 
         return
@@ -111,11 +110,6 @@ cl {
                         <div className="stat-icon">{"⬣"}</div>
                         <div className="stat-value info">{models}</div>
                         <div className="stat-label">AI Models</div>
-                    </div>
-                    <div className="stat-card warning-stripe">
-                        <div className="stat-icon">{"⏰"}</div>
-                        <div className="stat-value warning">{schedules}</div>
-                        <div className="stat-label">Schedules</div>
                     </div>
                 </div>
 
