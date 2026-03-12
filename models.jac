@@ -52,6 +52,17 @@ node SandboxSession {
         created_at: str = "";
 }
 
+node Task {
+    has title: str,
+        done: bool = False,
+        priority: str = "medium";
+}
+
+node Project {
+    has name: str,
+        description: str = "";
+}
+
 edge HasRun {}
 edge HasModel {}
 edge HasCost {}

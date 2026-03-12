@@ -6,6 +6,23 @@ import json;
 import time;
 import uuid as _uuid;
 
+glob _STUDIO_TYPES: list = [
+    "StudioRoot", "WalkerRun", "ModelConfig",
+    "CostRecord", "Schedule", "SandboxSession"
+];
+glob _STUDIO_WALKERS: list = [
+    "init_studio", "get_dashboard", "get_health",
+    "list_walkers", "run_walker_test", "get_run_history",
+    "inspect_graph", "add_model", "list_models", "remove_model",
+    "record_cost", "get_cost_summary",
+    "run_sandbox", "get_sandbox_history",
+    "create_schedule", "list_schedules", "toggle_schedule", "delete_schedule",
+    "update_node_props", "get_model_info", "test_model_prompt",
+    "get_server_logs", "load_example_app",
+    "list_packages", "get_package_detail", "install_package"
+];
+glob _LOG_RECORDS: list = [];
+
 # ---------------------------------------------------------------------------
 # Bootstrap
 # ---------------------------------------------------------------------------
@@ -15,6 +32,16 @@ walker:pub init_studio {
 
     can setup with Root entry {
         import from datetime { datetime }
+
+        # Install log handler (idempotent)
+        import sys;
+        import os;
+        _dir = os.path.dirname(os.path.abspath(__file__));
+        if _dir not in sys.path {
+            sys.path.insert(0, _dir);
+        }
+        import _log_handler;
+        _log_handler.install_studio_log_handler(_LOG_RECORDS);
 
         existing = [here -->](?:StudioRoot);
         studio = existing[0] if len(existing) > 0 else (here ++> StudioRoot(initialized=True, created_at=datetime.utcnow().isoformat()))[0];
@@ -163,7 +190,7 @@ walker:pub list_walkers {
         for module_name in list(Jac.loaded_modules.keys()) + ["__main__"] {
             walker_names = Jac.list_walkers(module_name);
             for wname in walker_names {
-                # Avoid duplicates
+                if wname in _STUDIO_WALKERS { continue; }
                 already = False;
                 for existing in walkers {
                     if existing["name"] == wname {
@@ -214,6 +241,7 @@ walker:pub list_walkers {
         # Fallback: also check WalkerArchetype subclasses for any missed walkers
         for cls in WalkerArchetype.__subclasses__() {
             wname = cls.__name__;
+            if wname in _STUDIO_WALKERS { continue; }
             already = False;
             for existing in walkers {
                 if existing["name"] == wname {
@@ -258,7 +286,8 @@ walker:pub run_walker_test {
     """Execute a named walker by dynamically spawning it on root."""
 
     has walker_name: str,
-        payload: dict = {};
+        payload: dict = {},
+        target_node_id: str = "";
 
     can execute with Root entry {
         import from datetime { datetime }
@@ -272,9 +301,10 @@ walker:pub run_walker_test {
         result_data: dict = {};
         status = "error";
         reports: list = [];
+        pre_snap: dict = {};
+        post_snap: dict = {};
 
         try {
-            # Find the walker class
             target_module = "__main__";
             for mod_name in list(Jac.loaded_modules.keys()) + ["__main__"] {
                 if self.walker_name in Jac.list_walkers(mod_name) {
@@ -288,19 +318,86 @@ walker:pub run_walker_test {
                 raise ValueError(f"Walker '{self.walker_name}' not found in module '{target_module}'");
             }
 
-            # Replicate the server's spawn pattern:
-            # 1. Create fresh call_state (save/restore outer)
-            # 2. Use Jac.spawn() (not spawn_call)
-            # 3. Drain reports from the call_state queue
             ctx = Jac.get_context();
             inner_cs = CallState();
             inner_token = ctx.call_state.set(inner_cs);
 
             try {
                 w = walker_cls(**(self.payload if self.payload else {}));
-                root_node = ctx.get_root();
-                Jac.spawn(w, root_node);
-                # Signal end and drain reports (same as server)
+
+                # Resolve target node
+                spawn_target = ctx.get_root();
+                if self.target_node_id {
+                    search_queue: list = [spawn_target];
+                    search_seen: list = [];
+                    for _i in range(10000) {
+                        if len(search_queue) == 0 { break; }
+                        candidate = search_queue.pop(0);
+                        cid = str(id(candidate));
+                        if cid in search_seen { continue; }
+                        search_seen.append(cid);
+                        if cid == self.target_node_id {
+                            spawn_target = candidate;
+                            break;
+                        }
+                        for child in [candidate -->] {
+                            search_queue.append(child);
+                        }
+                    }
+                }
+
+                # Snapshot graph BEFORE spawn
+                pre_q: list = [ctx.get_root()];
+                pre_seen: list = [];
+                for _si in range(10000) {
+                    if len(pre_q) == 0 { break; }
+                    sn = pre_q.pop(0);
+                    snid = str(id(sn));
+                    if snid in pre_seen { continue; }
+                    pre_seen.append(snid);
+                    sn_type = type(sn).__name__;
+                    if sn_type not in _STUDIO_TYPES {
+                        sprops: dict = {};
+                        for sk in dir(sn) {
+                            if not sk.startswith("_") and sk not in ["architype", "anchor"] {
+                                sv = getattr(sn, sk, None);
+                                if sv is not None and not callable(sv) {
+                                    sprops[sk] = str(sv);
+                                }
+                            }
+                        }
+                        pre_snap[snid] = {"type": sn_type, "props": sprops};
+                    }
+                    for sch in [sn -->] { pre_q.append(sch); }
+                }
+
+                Jac.spawn(w, spawn_target);
+
+                # Snapshot graph AFTER spawn
+                post_q: list = [ctx.get_root()];
+                post_seen: list = [];
+                for _si2 in range(10000) {
+                    if len(post_q) == 0 { break; }
+                    sn2 = post_q.pop(0);
+                    snid2 = str(id(sn2));
+                    if snid2 in post_seen { continue; }
+                    post_seen.append(snid2);
+                    sn2_type = type(sn2).__name__;
+                    if sn2_type not in _STUDIO_TYPES {
+                        sprops2: dict = {};
+                        for sk2 in dir(sn2) {
+                            if not sk2.startswith("_") and sk2 not in ["architype", "anchor"] {
+                                sv2 = getattr(sn2, sk2, None);
+                                if sv2 is not None and not callable(sv2) {
+                                    sprops2[sk2] = str(sv2);
+                                }
+                            }
+                        }
+                        post_snap[snid2] = {"type": sn2_type, "props": sprops2};
+                    }
+                    for sch2 in [sn2 -->] { post_q.append(sch2); }
+                }
+
                 inner_cs.reports.put_nowait(inner_cs._sentinel);
                 inner_reports: list = [];
                 while not inner_cs.reports.empty() {
@@ -318,14 +415,39 @@ walker:pub run_walker_test {
             status = "success";
         } except Exception as e {
             result_data = {"error": str(e)};
-        } except Exception as e {
-            result_data = {"error": str(e)};
         }
+
+        # Compute graph diff
+        new_nodes: list = [];
+        modified_nodes: list = [];
+        for nid_key in post_snap {
+            if nid_key not in pre_snap {
+                new_nodes.append({
+                    "id": nid_key,
+                    "type": post_snap[nid_key]["type"],
+                    "props": post_snap[nid_key]["props"]
+                });
+            } else {
+                if post_snap[nid_key]["props"] != pre_snap[nid_key]["props"] {
+                    modified_nodes.append({
+                        "id": nid_key,
+                        "type": post_snap[nid_key]["type"],
+                        "before": pre_snap[nid_key]["props"],
+                        "after": post_snap[nid_key]["props"]
+                    });
+                }
+            }
+        }
+        graph_diff: dict = {
+            "nodes_before": len(pre_snap),
+            "nodes_after": len(post_snap),
+            "created": new_nodes,
+            "modified": modified_nodes
+        };
 
         elapsed = int((time.time() - start_time) * 1000);
         now_str = datetime.utcnow().isoformat();
 
-        # Record the run in the Studio graph
         studio ++> WalkerRun(
             walker_name=self.walker_name,
             payload=self.payload,
@@ -341,7 +463,8 @@ walker:pub run_walker_test {
             "status": status,
             "duration_ms": elapsed,
             "result": result_data,
-            "reports": reports
+            "reports": reports,
+            "graph_diff": graph_diff
         };
     }
 }
@@ -359,6 +482,8 @@ walker:pub get_run_history {
 
         runs: list = [];
         for run_node in [studio -->](?:WalkerRun) {
+            # Skip runs of studio infrastructure walkers
+            if run_node.walker_name in _STUDIO_WALKERS { continue; }
             runs.append({
                 "walker_name": run_node.walker_name,
                 "status": run_node.status,
@@ -374,86 +499,53 @@ walker:pub get_run_history {
 }
 
 walker:pub inspect_graph {
-    """Traverse the graph and return structure for visualization."""
+    """Traverse the developer's application graph (skips Studio internals)."""
 
-    has max_depth: int = 5,
-        nodes: list = [],
-        edges_list: list = [],
-        seen: list = [],
-        parent_id: str = "",
-        current_depth: int = 0;
+    has max_depth: int = 10;
 
     can start with Root entry {
-        node_id = str(id(here));
-        self.seen.append(node_id);
-        self.nodes.append({"id": node_id, "type": "Root", "props": {}});
-        if self.current_depth < self.max_depth {
-            self.current_depth += 1;
-            self.parent_id = node_id;
-            visit [-->];
-        }
-    }
+        nodes: list = [];
+        edges_list: list = [];
+        seen: list = [];
 
-    can visit_studio with StudioRoot entry {
-        node_id = str(id(here));
-        if node_id not in self.seen {
-            self.seen.append(node_id);
-            self.nodes.append({"id": node_id, "type": "StudioRoot", "props": {"initialized": here.initialized, "created_at": here.created_at}});
-            self.edges_list.append({"from": self.parent_id, "to": node_id, "type": "StudioRoot"});
-            saved_parent = self.parent_id;
-            self.parent_id = node_id;
-            visit [-->];
-            self.parent_id = saved_parent;
-        }
-    }
+        queue: list = [{"node": here, "parent": "", "depth": 0}];
+        for _i in range(10000) {
+            if len(queue) == 0 { break; }
+            item: dict = queue[0];
+            queue = queue[1:];
+            nd = item["node"];
+            node_id = str(id(nd));
+            if node_id in seen { continue; }
+            seen.append(node_id);
 
-    can visit_run with WalkerRun entry {
-        node_id = str(id(here));
-        if node_id not in self.seen {
-            self.seen.append(node_id);
-            self.nodes.append({"id": node_id, "type": "WalkerRun", "props": {"walker_name": here.walker_name, "status": here.status, "duration_ms": here.duration_ms}});
-            self.edges_list.append({"from": self.parent_id, "to": node_id, "type": "WalkerRun"});
-        }
-    }
+            node_type: str = type(nd).__name__;
+            is_studio: bool = node_type in _STUDIO_TYPES;
 
-    can visit_model with ModelConfig entry {
-        node_id = str(id(here));
-        if node_id not in self.seen {
-            self.seen.append(node_id);
-            self.nodes.append({"id": node_id, "type": "ModelConfig", "props": {"name": here.name, "model_id": here.model_id, "provider": here.provider}});
-            self.edges_list.append({"from": self.parent_id, "to": node_id, "type": "ModelConfig"});
-        }
-    }
+            if not is_studio {
+                props: dict = {};
+                for k in dir(nd) {
+                    if not k.startswith("_") and k not in ["architype", "anchor"] {
+                        val = getattr(nd, k, None);
+                        if val is not None and not callable(val) {
+                            props[k] = str(val);
+                        }
+                    }
+                }
+                nodes.append({"id": node_id, "type": node_type, "props": props});
+                if item["parent"] {
+                    edges_list.append({"from": item["parent"], "to": node_id, "type": node_type});
+                }
+            }
 
-    can visit_cost with CostRecord entry {
-        node_id = str(id(here));
-        if node_id not in self.seen {
-            self.seen.append(node_id);
-            self.nodes.append({"id": node_id, "type": "CostRecord", "props": {"model_id": here.model_id, "cost_usd": here.cost_usd}});
-            self.edges_list.append({"from": self.parent_id, "to": node_id, "type": "CostRecord"});
+            next_parent: str = node_id if not is_studio else item["parent"];
+            if item["depth"] < self.max_depth {
+                for child in [nd -->] {
+                    queue.append({"node": child, "parent": next_parent, "depth": item["depth"] + 1});
+                }
+            }
         }
-    }
 
-    can visit_schedule with Schedule entry {
-        node_id = str(id(here));
-        if node_id not in self.seen {
-            self.seen.append(node_id);
-            self.nodes.append({"id": node_id, "type": "Schedule", "props": {"id": here.id, "walker_name": here.walker_name, "cron_expr": here.cron_expr, "enabled": here.enabled}});
-            self.edges_list.append({"from": self.parent_id, "to": node_id, "type": "Schedule"});
-        }
-    }
-
-    can visit_session with SandboxSession entry {
-        node_id = str(id(here));
-        if node_id not in self.seen {
-            self.seen.append(node_id);
-            self.nodes.append({"id": node_id, "type": "SandboxSession", "props": {"session_id": here.session_id, "status": here.status}});
-            self.edges_list.append({"from": self.parent_id, "to": node_id, "type": "SandboxSession"});
-        }
-    }
-
-    can finish with Root exit {
-        report {"nodes": self.nodes, "edges": self.edges_list};
+        report {"nodes": nodes, "edges": edges_list};
     }
 }
 
@@ -599,7 +691,7 @@ walker:pub get_cost_summary {
         }
         report {
             "total_requests": total_requests,
-            "total_cost_usd": round(total_cost, 4),
+            "total_cost_usd": int(total_cost * 10000) / 10000.0,
             "by_model": list(by_model.values())
         };
     }
@@ -809,6 +901,425 @@ walker:pub get_sandbox_history {
         }
         sessions.sort(key=lambda x: any: x["executed_at"], reverse=True);
         report sessions[:self.limit];
+    }
+}
+
+walker:pub update_node_props {
+    """Update properties on a specific node found by BFS from root."""
+
+    has node_id: str,
+        updates: dict = {};
+
+    can execute with Root entry {
+        import from jaclang { JacRuntime as Jac }
+
+        ctx = Jac.get_context();
+        target = None;
+        search_q: list = [ctx.get_root()];
+        search_s: list = [];
+        for _i in range(10000) {
+            if len(search_q) == 0 { break; }
+            candidate = search_q.pop(0);
+            cid = str(id(candidate));
+            if cid in search_s { continue; }
+            search_s.append(cid);
+            if cid == self.node_id {
+                target = candidate;
+                break;
+            }
+            for child in [candidate -->] {
+                search_q.append(child);
+            }
+        }
+
+        if target is None {
+            report {"error": f"Node '{self.node_id}' not found"};
+            disengage;
+        }
+
+        changed: list = [];
+        for (prop_name, prop_val) in self.updates.items() {
+            if hasattr(target, prop_name) {
+                old_val = getattr(target, prop_name);
+                if type(old_val).__name__ == "int" {
+                    prop_val = int(prop_val);
+                } elif type(old_val).__name__ == "float" {
+                    prop_val = float(prop_val);
+                } elif type(old_val).__name__ == "bool" {
+                    prop_val = str(prop_val).lower() in ["true", "1", "yes"];
+                }
+                setattr(target, prop_name, prop_val);
+                changed.append(prop_name);
+            }
+        }
+
+        report {"node_id": self.node_id, "type": type(target).__name__, "changed": changed};
+    }
+}
+
+walker:pub get_model_info {
+    """Detect AI model configuration from environment variables."""
+
+    can detect with Root entry {
+        import os;
+
+        env_keys: list = [
+            "MTLLM_MODEL", "OPENAI_API_KEY", "ANTHROPIC_API_KEY",
+            "GOOGLE_API_KEY", "OLLAMA_HOST", "OLLAMA_MODEL",
+            "MTLLM_TEMPERATURE", "MTLLM_MAX_TOKENS"
+        ];
+
+        detected: list = [];
+        for ek in env_keys {
+            val = os.environ.get(ek, "");
+            if val {
+                display_val = val;
+                if "KEY" in ek or "SECRET" in ek {
+                    if len(val) > 4 {
+                        display_val = "****" + val[-4:];
+                    } else {
+                        display_val = "****";
+                    }
+                }
+                detected.append({"name": ek, "value": display_val, "is_set": True});
+            } else {
+                detected.append({"name": ek, "value": "", "is_set": False});
+            }
+        }
+
+        active_model = os.environ.get("MTLLM_MODEL", "");
+        provider = "unknown";
+        if "gpt" in active_model or "o1" in active_model or "o3" in active_model {
+            provider = "openai";
+        } elif "claude" in active_model {
+            provider = "anthropic";
+        } elif "gemini" in active_model {
+            provider = "google";
+        } elif os.environ.get("OLLAMA_HOST", "") {
+            provider = "ollama";
+        }
+
+        report {"active_model": active_model or "(not set)", "provider": provider, "env_vars": detected};
+    }
+}
+
+walker:pub test_model_prompt {
+    """Send a test prompt to the configured LLM via MTLLM."""
+
+    has prompt: str = "Say hello in one sentence.";
+
+    can test with Root entry {
+        output_text = "";
+        status = "error";
+
+        try {
+            import from mtllm.llms { Anthropic, OpenAI }
+            import os;
+
+            model_name = os.environ.get("MTLLM_MODEL", "");
+            if not model_name {
+                report {"status": "error", "output": "MTLLM_MODEL env var is not set."};
+                disengage;
+            }
+
+            if "claude" in model_name {
+                llm = Anthropic(model_name=model_name);
+            } else {
+                llm = OpenAI(model_name=model_name);
+            }
+
+            response = llm(meaning_in=self.prompt, output_hint="a short text response");
+            output_text = str(response);
+            status = "success";
+        } except Exception as e {
+            output_text = str(e);
+        }
+
+        report {"status": status, "output": output_text, "prompt": self.prompt};
+    }
+}
+
+walker:pub get_server_logs {
+    """Return recent server log entries."""
+
+    has limit: int = 100,
+        level: str = "";
+
+    can collect with Root entry {
+        entries: list = list(_LOG_RECORDS);
+        entries.reverse();
+
+        if self.level {
+            lvl_upper = self.level.upper();
+            entries = [e for e in entries if e["level"] == lvl_upper];
+        }
+
+        report entries[:self.limit];
+    }
+}
+
+walker:pub load_example_app {
+    """Load a sample Todo app into the graph."""
+
+    can bootstrap with Root entry {
+        existing = [here -->](?:Task);
+        if len(existing) > 0 {
+            report {"status": "already_loaded", "message": "Example app is already loaded."};
+            disengage;
+        }
+
+        here ++> Project(name="My First Project", description="A sample project to explore Jaseci Studio");
+        here ++> Task(title="Learn Jac basics", done=True, priority="high");
+        here ++> Task(title="Build a walker", done=True, priority="high");
+        here ++> Task(title="Explore the graph", done=False, priority="medium");
+        here ++> Task(title="Test AI integration", done=False, priority="low");
+        here ++> Task(title="Deploy to production", done=False, priority="medium");
+
+        report {
+            "status": "loaded",
+            "message": "Example Todo app loaded! You now have 5 tasks and a project in your graph."
+        };
+    }
+}
+
+walker:pub list_tasks {
+    """List all tasks with their status."""
+
+    can list_all with Root entry {
+        tasks: list = [];
+        for t in [here -->](?:Task) {
+            tasks.append({"title": t.title, "done": t.done, "priority": t.priority});
+        }
+        report tasks;
+    }
+}
+
+walker:pub add_task {
+    """Add a new task."""
+
+    has title: str,
+        priority: str = "medium";
+
+    can create with Root entry {
+        here ++> Task(title=self.title, priority=self.priority);
+        report {"created": self.title, "priority": self.priority};
+    }
+}
+
+walker:pub toggle_task {
+    """Toggle a task's done status."""
+
+    has task_title: str;
+
+    can toggle with Root entry {
+        for t in [here -->](?:Task) {
+            if t.title == self.task_title {
+                t.done = not t.done;
+                report {"toggled": t.title, "done": t.done};
+                disengage;
+            }
+        }
+        report {"error": "Task not found: " + self.task_title};
+    }
+}
+
+walker:pub delete_task {
+    """Delete a task by title."""
+
+    has task_title: str;
+
+    can remove with Root entry {
+        for t in [here -->](?:Task) {
+            if t.title == self.task_title {
+                del t;
+                report {"deleted": self.task_title};
+                disengage;
+            }
+        }
+        report {"error": "Task not found: " + self.task_title};
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Jacpack Registry — official template packs
+# ---------------------------------------------------------------------------
+
+glob _JACPACK_REGISTRY: list = [
+    {
+        "name": "multi-user-todo-app",
+        "title": "Multi-User Todo App",
+        "description": "Full-stack CRUD app with user authentication, priority levels, and hierarchical sub-todos. Great starting point for learning Jac.",
+        "category": "Starter",
+        "tags": ["fullstack", "auth", "crud"],
+        "pack_url": "https://raw.githubusercontent.com/jaseci-labs/jacpacks/refs/heads/main/multi-user-todo-app/multi-user-todo-app.jacpack",
+        "repo_path": "multi-user-todo-app",
+        "difficulty": "beginner"
+    },
+    {
+        "name": "multi-user-todo-meals-app",
+        "title": "Todo App with AI Meal Planner",
+        "description": "Todo app extended with Claude-powered meal planning, shopping lists, and nutritional indicators. Shows AI agent integration patterns.",
+        "category": "AI",
+        "tags": ["fullstack", "ai", "claude", "agents"],
+        "pack_url": "https://raw.githubusercontent.com/jaseci-labs/jacpacks/refs/heads/main/multi-user-todo-meals-app/multi-user-todo-meals-app.jacpack",
+        "repo_path": "multi-user-todo-meals-app",
+        "difficulty": "intermediate"
+    },
+    {
+        "name": "Algo",
+        "title": "Algo — Voice AI Assistant",
+        "description": "Voice-enabled personal AI assistant with calendar, email, and GitHub integration. Demonstrates multi-tool agent orchestration.",
+        "category": "AI",
+        "tags": ["voice", "ai", "agents", "integrations"],
+        "pack_url": "https://raw.githubusercontent.com/jaseci-labs/jacpacks/refs/heads/main/Algo/Algo.jacpack",
+        "repo_path": "Algo",
+        "difficulty": "advanced"
+    },
+    {
+        "name": "AI_Study_Helper",
+        "title": "AI Study Helper",
+        "description": "Intelligent study companion that transforms text into structured educational material using specialized AI agents.",
+        "category": "AI",
+        "tags": ["education", "ai", "agents"],
+        "pack_url": "https://raw.githubusercontent.com/jaseci-labs/jacpacks/refs/heads/main/AI_Study_Helper/AI_Study_Helper.jacpack",
+        "repo_path": "AI_Study_Helper",
+        "difficulty": "intermediate"
+    },
+    {
+        "name": "jac-playground",
+        "title": "Jac Playground",
+        "description": "Browser-based interactive code editor running entirely client-side via WebAssembly. Edit and run Jac code in the browser.",
+        "category": "Developer Tools",
+        "tags": ["wasm", "editor", "playground"],
+        "pack_url": "https://raw.githubusercontent.com/jaseci-labs/jacpacks/refs/heads/main/jac-playground/jacPlayground.jacpack",
+        "repo_path": "jac-playground",
+        "difficulty": "intermediate"
+    },
+    {
+        "name": "jac-gpt",
+        "title": "Jac GPT",
+        "description": "Documentation assistant for the Jac language. A fullstack app with MongoDB persistence that answers Jac programming questions.",
+        "category": "AI",
+        "tags": ["ai", "docs", "mongodb", "fullstack"],
+        "pack_url": "https://raw.githubusercontent.com/jaseci-labs/jacpacks/refs/heads/main/jac-gpt/jac-gpt.jacpack",
+        "repo_path": "jac-gpt",
+        "difficulty": "intermediate"
+    }
+];
+
+walker:pub list_packages {
+    """List available jacpack templates from the registry."""
+
+    has category: str = "",
+        search: str = "";
+
+    can list_all with Root entry {
+        packs: list = [];
+        for p in _JACPACK_REGISTRY {
+            if self.category and p["category"] != self.category {
+                continue;
+            }
+            if self.search {
+                query = self.search.lower();
+                name_match = query in p["name"].lower();
+                title_match = query in p["title"].lower();
+                desc_match = query in p["description"].lower();
+                if not name_match and not title_match and not desc_match {
+                    continue;
+                }
+            }
+            packs.append(p);
+        }
+        report packs;
+    }
+}
+
+walker:pub get_package_detail {
+    """Get detailed info about a specific jacpack."""
+
+    has name: str;
+
+    can get_detail with Root entry {
+        for p in _JACPACK_REGISTRY {
+            if p["name"] == self.name {
+                report p;
+                disengage;
+            }
+        }
+        report {"error": "Package not found: " + self.name};
+    }
+}
+
+walker:pub install_package {
+    """Install a jacpack template by running jac create server-side."""
+
+    has name: str,
+        project_name: str = "";
+
+    can install with Root entry {
+        import subprocess;
+        import os;
+
+        found = None;
+        for p in _JACPACK_REGISTRY {
+            if p["name"] == self.name {
+                found = p;
+            }
+        }
+        if not found {
+            report {"status": "error", "message": "Package not found: " + self.name};
+            disengage;
+        }
+
+        proj = self.project_name or self.name;
+        pack_url = found["pack_url"];
+        cwd = os.getcwd();
+        target_dir = os.path.join(cwd, proj);
+
+        # Check if already installed
+        if os.path.exists(target_dir) {
+            report {
+                "status": "already_installed",
+                "package": found["title"],
+                "project_dir": target_dir,
+                "message": "Project '" + proj + "' already exists at " + target_dir
+            };
+            disengage;
+        }
+
+        # Run jac create
+        try {
+            result = subprocess.run(
+                ["jac", "create", proj, "--use", pack_url],
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                timeout=60
+            );
+            if result.returncode == 0 {
+                report {
+                    "status": "success",
+                    "package": found["title"],
+                    "project_dir": target_dir,
+                    "message": "Installed '" + found["title"] + "' to " + target_dir,
+                    "output": result.stdout
+                };
+            } else {
+                report {
+                    "status": "error",
+                    "package": found["title"],
+                    "message": "Install failed: " + (result.stderr or result.stdout),
+                    "command": "jac create " + proj + " --use " + pack_url
+                };
+            }
+        } except Exception as e {
+            report {
+                "status": "error",
+                "package": found["title"],
+                "message": "Install error: " + str(e),
+                "command": "jac create " + proj + " --use " + pack_url
+            };
+        }
     }
 }
 

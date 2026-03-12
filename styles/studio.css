@@ -550,6 +550,29 @@ textarea, .code-editor {
   color: var(--text-secondary);
 }
 
+/* ===== JSON SYNTAX HIGHLIGHTING ===== */
+.json-line { line-height: 1.5; white-space: pre; }
+.json-key { color: #818cf8; }
+.json-string { color: #34d399; }
+.json-number { color: #fbbf24; }
+.json-bool { color: #60a5fa; }
+.json-null { color: #6b7280; font-style: italic; }
+.json-bracket { color: var(--text-muted); }
+.json-sep { color: var(--text-muted); }
+
+/* ===== GRAPH DIFF ===== */
+.diff-summary { display: flex; gap: 12px; margin-bottom: 12px; }
+.diff-badge { font-size: 12px; padding: 4px 10px; border-radius: var(--radius); font-weight: 600; }
+.diff-badge.created { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+.diff-badge.modified { background: rgba(251, 191, 36, 0.12); color: #f59e0b; }
+.diff-node { padding: 8px 12px; border-radius: var(--radius); background: var(--bg-secondary); margin-bottom: 6px; font-size: 12px; }
+.diff-node .diff-type { font-weight: 600; color: var(--text-primary); }
+.diff-node .diff-id { font-family: var(--mono); color: var(--text-muted); font-size: 11px; }
+.diff-prop { display: flex; gap: 8px; font-size: 11px; font-family: var(--mono); padding: 2px 0; }
+.diff-prop .prop-key { color: #818cf8; min-width: 80px; }
+.diff-prop .prop-old { color: #ef4444; text-decoration: line-through; }
+.diff-prop .prop-new { color: #10b981; }
+
 /* ===== LAYOUT HELPERS ===== */
 .row { display: flex; gap: 16px; }
 .col { flex: 1; min-width: 0; }

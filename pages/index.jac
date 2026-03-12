@@ -1,13 +1,15 @@
 cl import from "@jac/runtime" { Link }
 
 cl {
-    sv import from ..main { init_studio, get_dashboard, get_health, get_run_history }
+    sv import from ..main { init_studio, get_dashboard, get_health, get_run_history, load_example_app }
 
     def:pub page -> JsxElement {
         has stats: dict = {},
             health: dict = {},
             recent_runs: list = [],
-            loading: bool = true;
+            loading: bool = true,
+            loading_example: bool = false,
+            example_loaded: bool = false;
 
         async can with entry {
             try {
@@ -44,6 +46,19 @@ cl {
             }
 
             loading = false;
+        }
+
+        async def handle_load_example -> None {
+            loading_example = true;
+            try {
+                ex_result = root spawn load_example_app();
+                if ex_result.reports and len(ex_result.reports) > 0 {
+                    example_loaded = true;
+                }
+            } except Exception as e {
+                print("Example load error:", e);
+            }
+            loading_example = false;
         }
 
         if loading {
@@ -120,13 +135,13 @@ cl {
                             <div className="qa-desc">Browse nodes and edges visually</div>
                         </div>
                     </Link>
-                    <Link to="/sandbox" className="quick-action">
-                        <span className="qa-icon">{"⌘"}</span>
+                    <div className="quick-action" onClick={lambda -> None { handle_load_example(); }} style={{"cursor": "pointer"}}>
+                        <span className="qa-icon">{"📦"}</span>
                         <div className="qa-text">
-                            <div className="qa-title">Open Sandbox</div>
-                            <div className="qa-desc">Write and execute Jac code live</div>
+                            <div className="qa-title">{loading_example and "Loading..." or (example_loaded and "Example Loaded!" or "Load Example App")}</div>
+                            <div className="qa-desc">{example_loaded and "Todo tasks added to your graph" or "Add sample tasks to explore Studio features"}</div>
                         </div>
-                    </Link>
+                    </div>
                 </div>
 
                 <div className="row">

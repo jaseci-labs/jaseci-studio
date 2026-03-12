@@ -10,7 +10,8 @@ cl {
             history: list = [],
             running: bool = false,
             loading: bool = true,
-            tab: str = "result";
+            tab: str = "result",
+            copied: bool = false;
 
         async can with entry {
             try {
@@ -84,6 +85,15 @@ cl {
                 result = {"error": str(e)};
             }
             running = false;
+        }
+
+        def copy_result -> None {
+            if result {
+                text = JSON.stringify(result["reports"] or result["result"], None, 2);
+                navigator.clipboard.writeText(text);
+                copied = true;
+                setTimeout(lambda -> None { copied = false; }, 2000);
+            }
         }
 
         if loading {
@@ -176,6 +186,12 @@ cl {
                                     Result
                                 </div>
                                 <div
+                                    className={"tab-item" + (" active" if tab == "graph" else "")}
+                                    onClick={lambda -> None { tab = "graph"; }}
+                                >
+                                    Graph Diff
+                                </div>
+                                <div
                                     className={"tab-item" + (" active" if tab == "history" else "")}
                                     onClick={lambda -> None { tab = "history"; }}
                                 >
@@ -191,6 +207,13 @@ cl {
                                             {result["status"]}
                                         </span>
                                         <span style={{"fontSize": "12px", "color": "var(--text-muted)"}}>{result["duration_ms"]}ms</span>
+                                        <button
+                                            className="btn btn-ghost btn-sm"
+                                            onClick={lambda -> None { copy_result(); }}
+                                            style={{"marginLeft": "auto"}}
+                                        >
+                                            {copied and "Copied!" or "Copy"}
+                                        </button>
                                     </div>
                                     {result["status"] == "success"
                                     and <div>
@@ -206,6 +229,25 @@ cl {
                                     <div className="empty-icon">{"⚙"}</div>
                                     <div className="empty-title">No result yet</div>
                                     <div className="empty-desc">Select a walker and click Spawn to execute it on root</div>
+                                </div>
+                            )}
+
+                            {tab == "graph" and (
+                                result and result["graph_diff"]
+                                and <div>
+                                    <div className="section-title">Nodes Created ({len(result["graph_diff"]["created"])})</div>
+                                    {len(result["graph_diff"]["created"]) > 0
+                                    and <div className="code-output">{JSON.stringify(result["graph_diff"]["created"], None, 2)}</div>
+                                    or <div style={{"color": "var(--text-muted)", "fontSize": "13px", "marginBottom": "12px"}}>No new nodes</div>}
+                                    <div className="section-title">Nodes Modified ({len(result["graph_diff"]["modified"])})</div>
+                                    {len(result["graph_diff"]["modified"]) > 0
+                                    and <div className="code-output">{JSON.stringify(result["graph_diff"]["modified"], None, 2)}</div>
+                                    or <div style={{"color": "var(--text-muted)", "fontSize": "13px"}}>No modifications</div>}
+                                </div>
+                                or <div className="empty-state">
+                                    <div className="empty-icon">{"⬡"}</div>
+                                    <div className="empty-title">No graph diff</div>
+                                    <div className="empty-desc">Run a walker to see what nodes were created or modified</div>
                                 </div>
                             )}
 

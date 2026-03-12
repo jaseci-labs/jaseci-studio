@@ -30,18 +30,22 @@ cl {
                             <span className="nav-icon">{"⬡"}</span>
                             Graph Explorer
                         </Link>
+                        <Link to="/logs" className={"nav-item" + (" active" if current == "/logs" else "")}>
+                            <span className="nav-icon">{"|"}</span>
+                            Logs
+                        </Link>
+                        <div className="sidebar-section">Resources</div>
+                        <Link to="/packages" className={"nav-item" + (" active" if current == "/packages" else "")}>
+                            <span className="nav-icon">{"📦"}</span>
+                            Packages
+                        </Link>
                         <Link to="/sandbox" className={"nav-item" + (" active" if current == "/sandbox" else "")}>
                             <span className="nav-icon">{"⌘"}</span>
-                            Sandbox
+                            Playground
                         </Link>
-                        <div className="sidebar-section">Configure</div>
                         <Link to="/gateway" className={"nav-item" + (" active" if current == "/gateway" else "")}>
                             <span className="nav-icon">{"⬣"}</span>
                             AI Gateway
-                        </Link>
-                        <Link to="/scheduler" className={"nav-item" + (" active" if current == "/scheduler" else "")}>
-                            <span className="nav-icon">{"⏰"}</span>
-                            Scheduler
                         </Link>
                     </nav>
                     <div className="sidebar-footer">
